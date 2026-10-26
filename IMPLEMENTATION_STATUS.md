@@ -43,7 +43,7 @@
 
 BLOCKED: повторная полная сверка исходного JIVO_ANALOG_SPEC.md — вложение недоступно после обновления среды. Требования пользователя и ранее прочитанный документ учтены; полная копия не выдумана. Реальные внешние каналы/CRM требуют отдельных тестовых доступов и контрактов.
 
-## Phase 3 — Chat Core: backend реализован, локальные gates PASS; удалённый CI ожидается
+## Phase 3 — Chat Core: backend реализован, локальные gates и GitHub Actions PASS
 
 Реализовано:
 - Tenant-scoped Channel/Contact/VisitorSession/Conversation/Message/Attachment/ConversationRead/ChatEvent и составные FK MySQL.
@@ -63,6 +63,8 @@ BLOCKED: повторная полная сверка исходного JIVO_AN
 - Полный Playwright: 10 PASS (desktop/mobile), включая реальные cross-origin HTTP, private Reverb уведомление через Redis worker, ответ оператора, недоступность заметки, восстановление history и изоляцию двух сайтов/сессий.
 - Отдельный параллельный desktop/mobile прогон нового сценария: 2 PASS с двумя workers. Реальная загрузка PDF через PHP и скачивание visitor также проверены: финальный прогон 2 PASS с двумя workers (12.9 с).
 - Pint --test PASS (78 файлов), Composer validate --strict PASS. Зависимости не менялись; lock files сохранены.
+- GitHub Actions для код-коммита `8e7d751`: run 40406995045 SUCCESS, включая composer/npm audits, build, миграции, 32 Pest-теста и 10 Playwright-тестов.
+  https://github.com/mddevops/aidesk-chat-center/actions/runs/40406995045
 
 Ограничения: это backend/API, не готовый Inbox или установленный виджет. SDK/iframe builder/preview/publish отсутствуют; visitor realtime auth, presence, routing/accept/assignment/status transitions, scoped department visibility и provider delivery receipts ещё не реализованы. stored = подтверждение записи MySQL, не прочтение/доставка внешним провайдером. Повторы event_id допустимы; HTTPS history — источник истины. Антивирус и юридический текст согласия требуют отдельной эксплуатационной подготовки. Внешние каналы/CRM не подключены. Production deployment и удаление существующих данных не выполнялись.
 
@@ -70,4 +72,4 @@ BLOCKED: исходный JIVO_ANALOG_SPEC.md по-прежнему недост
 
 Следующий конкретный шаг: Phase 4 — защищённый `/inbox`, реальный список/поиск/фильтры диалогов, переписка/заметки/вложения, правая карточка контакта и подписка Echo с догрузкой по sequence. Назначение/принятие/переходы статусов реализовывать атомарными серверными действиями с policies и version, а не неработающими кнопками. Затем Phase 5 — iframe SDK и Widget Builder.
 
-Последние код-коммиты: Foundation `9240b71`, test isolation `d0cbf92`, Laravel/Pest `61a5ec2`, Access `845f5e4`, Chat domain/outbox `93f103b`. Chat API и статус — следующий коммит; точный последний SHA: `git log -1 --oneline`.
+Последние код-коммиты: Foundation `9240b71`, test isolation `d0cbf92`, Laravel/Pest `61a5ec2`, Access `845f5e4`, Chat domain/outbox `93f103b`. Chat API/security/E2E `8e7d751`. Последний status-коммит содержит эту запись; точный SHA: `git log -1 --oneline`.

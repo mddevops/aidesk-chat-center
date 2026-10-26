@@ -26,7 +26,7 @@ TenantContext scoped и очищается в finally. Middleware устанав
 
 Cookie auth: regenerate session при входе, invalidate при выходе, history clear, CSRF, rate limit по IP+email, active check на каждом защищённом запросе. Tenant responses private/no-store. Локальная админка создаёт/редактирует салоны, отделы и сайты, добавляет сотрудников, назначает роль/отдел и закрывает доступ. Удаления данных через UI нет.
 
-Приватный Reverb-канал `organizations.{organizationId}.operators.{userId}` проверяет активность, chat.view, tenant и конкретного пользователя. Авторизация и настоящая подписка проверены браузером. Доменные chat events пока не отправляются; visitor channels, отзыв уже открытых соединений, reconnect и delivery — следующие фазы. Не отправлять бизнес-данные до реализации их gates.
+Приватный Reverb-канал `organizations.{organizationId}.operators.{userId}` проверяет активность, chat.view, tenant и конкретного пользователя. Авторизация и настоящая подписка проверены браузером. На этапе Access это проверяло только подписку; реальные minimal chat notifications добавлены и проверены в Phase 3 ниже. Visitor channels, отзыв уже открытых соединений, reconnect UI и delivery — следующие фазы.
 
 ## Chat Core (Phase 3)
 
