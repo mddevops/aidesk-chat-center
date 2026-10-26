@@ -11,6 +11,7 @@ use App\Tenancy\TenantContext;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 
 class PublishChatEvent implements ShouldQueue
 {
@@ -39,15 +40,15 @@ class PublishChatEvent implements ShouldQueue
                     return;
                 }
                 $conversation = Conversation::findOrFail($event->conversation_id);
-                $message = Message::findOrFail($event->message_id);
-                $operators = User::where('organization_id', $this->organizationId)->where('is_active', true)->whereIn('role', ['owner', 'admin', 'supervisor', 'operator'])->pluck('id')->all();
+                $message = $event->message_id ? Message::findOrFail($event->message_id) : null;
+                $operators = User::where('organization_id', $this->organizationId)->where('is_active', true)->whereIn('role', ['owner', 'admin', 'supervisor', 'operator'])->get()->filter(fn ($user) => Gate::forUser($user)->allows('view', $conversation))->pluck('id')->all();
                 foreach (array_chunk($operators, 75) as $chunk) {
                     event(new ChatMessageAvailable($this->organizationId, $chunk, [
                         'event_id' => $event->event_id, 'schema_version' => 1, 'type' => $event->event_type,
-                        'aggregate_id' => $conversation->public_id, 'aggregate_version' => $message->sequence,
+                        'aggregate_id' => $conversation->public_id, 'aggregate_version' => $event->aggregate_version ?: ($message?->sequence ?? $conversation->version),
                         'occurred_at' => $event->created_at->toISOString(),
-                        'data' => ['conversation_id' => $conversation->id, 'message_id' => $message->id, 'sequence' => $message->sequence],
-                    ]));
+                        'data' => $message ? ['conversation_id' => $conversation->id, 'message_id' => $message->id, 'sequence' => $message->sequence, 'sender_type' => $message->sender_type] : ['conversation_id' => $conversation->id],
+                    ], $message ? 'chat.message_available.v1' : 'chat.conversation_changed.v1'));
                 }
                 $event->published_at = now();
                 $event->last_error_code = null;

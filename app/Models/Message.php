@@ -18,6 +18,11 @@ class Message extends Model
         return ['sequence' => 'integer'];
     }
 
+    public function operator()
+    {
+        return $this->belongsTo(User::class, 'operator_id');
+    }
+
     public function attachments()
     {
         return $this->hasMany(Attachment::class);

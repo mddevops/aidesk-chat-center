@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Chat;
 use App\Chat\Actions\SendMessage;
 use App\Chat\Actions\StoreAttachment;
 use App\Chat\ChatPayload;
+use App\Chat\ConversationPayload;
 use App\Chat\MessageData;
+use App\Chat\PhoneNumber;
 use App\Http\Controllers\Controller;
 use App\Models\Attachment;
 use App\Models\Channel;
@@ -41,8 +43,10 @@ class OperatorController extends Controller
     public function index(Request $request)
     {
         Gate::authorize('chat.view');
-        $data = $request->validate(['q' => ['sometimes', 'string', 'max:100'], 'view' => ['sometimes', Rule::in(['all', 'mine', 'incoming'])], 'status' => ['sometimes', Rule::in(['pending', 'open', 'closed'])]]);
-        $query = Conversation::with(['contact', 'channel']);
+        $data = $request->validate(['q' => ['sometimes', 'string', 'max:100'], 'view' => ['sometimes', Rule::in(['all', 'mine', 'incoming'])], 'status' => ['sometimes', Rule::in(['pending', 'open', 'closed'])], 'channel_id' => ['sometimes', 'integer'], 'department_id' => ['sometimes', 'integer']]);
+        $query = Conversation::visibleTo($request->user())->with(['contact', 'channel', 'assignedUser:id,name', 'department', 'latestMessage']);
+        $query->addSelect(['last_read_sequence' => ConversationRead::select('last_read_sequence')->whereColumn('conversation_reads.conversation_id', 'conversations.id')->where('user_id', $request->user()->id)->limit(1)]);
+        $query->selectSub(Message::selectRaw('COUNT(*)')->whereColumn('messages.conversation_id', 'conversations.id')->where('sender_type', 'visitor')->where('kind', 'message')->whereRaw('messages.sequence > COALESCE((SELECT last_read_sequence FROM conversation_reads WHERE conversation_reads.conversation_id = conversations.id AND user_id = ?), 0)', [$request->user()->id]), 'unread_count');
         if (($data['view'] ?? 'all') === 'mine') {
             $query->where('assigned_user_id', $request->user()->id);
         }
@@ -52,9 +56,18 @@ class OperatorController extends Controller
         if (isset($data['status'])) {
             $query->where('status', $data['status']);
         }
+        foreach (['channel_id', 'department_id'] as $filter) {
+            if (isset($data[$filter])) {
+                $query->where($filter, $data[$filter]);
+            }
+        }
         if (! empty($data['q'])) {
             $needle = '%'.addcslashes(trim($data['q']), '%_\\').'%';
             $digits = preg_replace('/\D/', '', $data['q']);
+            try {
+                $digits = ltrim(PhoneNumber::normalize($data['q']), '+');
+            } catch (ValidationException) {
+            }
             $query->whereHas('contact', function ($q) use ($needle, $digits) {
                 $q->where('name', 'like', $needle);
                 if (strlen($digits) >= 3) {
@@ -64,32 +77,35 @@ class OperatorController extends Controller
         }
         $page = $query->orderByDesc('last_message_at')->orderByDesc('id')->cursorPaginate(30);
 
-        return response()->json(['data' => $page->getCollection()->map(fn ($conversation) => $this->payload($conversation)), 'meta' => ['next_cursor' => $page->nextCursor()?->encode(), 'has_more' => $page->hasMorePages()]]);
+        return response()->json(['data' => $page->getCollection()->map(fn ($conversation) => ConversationPayload::make($conversation, $request->user())), 'meta' => ['next_cursor' => $page->nextCursor()?->encode(), 'has_more' => $page->hasMorePages()]]);
     }
 
-    public function show(Conversation $conversation)
+    public function show(Request $request, Conversation $conversation)
     {
         Gate::authorize('view', $conversation);
 
-        return response()->json(['data' => $this->payload($conversation->load(['contact', 'channel']))]);
-    }
-
-    private function payload(Conversation $conversation): array
-    {
-        return [...$conversation->only('id', 'public_id', 'status', 'assigned_user_id', 'department_id', 'last_sequence', 'last_message_at', 'version'),
-            'contact' => $conversation->contact->only('id', 'name', 'phone'), 'channel' => $conversation->channel->only('id', 'name', 'kind')];
+        return response()->json(['data' => ConversationPayload::make($conversation->load(['contact', 'channel', 'assignedUser', 'department', 'latestMessage']), $request->user())]);
     }
 
     public function messages(Request $request, Conversation $conversation)
     {
         Gate::authorize('view', $conversation);
-        $data = $request->validate(['after_sequence' => ['sometimes', 'integer', 'min:0']]);
-        $messages = Message::with('attachments')->where('conversation_id', $conversation->id)->where('sequence', '>', $data['after_sequence'] ?? 0)->orderBy('sequence')->limit(101)->get();
-
+        $data = $request->validate(['after_sequence' => ['sometimes', 'integer', 'min:0'], 'before_sequence' => ['sometimes', 'integer', 'min:1'], 'latest' => ['sometimes', 'boolean']]);
+        $older = $request->boolean('latest') || isset($data['before_sequence']);
+        $query = Message::with(['attachments', 'operator:id,name'])->where('conversation_id', $conversation->id);
+        if (isset($data['before_sequence'])) {
+            $query->where('sequence', '<', $data['before_sequence']);
+        } elseif (! $older) {
+            $query->where('sequence', '>', $data['after_sequence'] ?? 0);
+        }
+        $messages = $query->orderBy('sequence', $older ? 'desc' : 'asc')->limit(101)->get();
         $hasMore = $messages->count() > 100;
         $messages = $messages->take(100);
+        if ($older) {
+            $messages = $messages->reverse()->values();
+        }
 
-        return response()->json(['data' => $messages->map(fn ($message) => ChatPayload::message($message)), 'meta' => ['last_sequence' => $conversation->last_sequence, 'next_after_sequence' => $messages->last()?->sequence ?? (int) ($data['after_sequence'] ?? 0), 'has_more' => $hasMore]]);
+        return response()->json(['data' => $messages->map(fn ($message) => ChatPayload::message($message)), 'meta' => ['last_sequence' => $conversation->last_sequence, 'next_after_sequence' => $messages->last()?->sequence ?? (int) ($data['after_sequence'] ?? 0), 'next_before_sequence' => $messages->first()?->sequence, 'has_more' => ! $older && $hasMore, 'has_older' => $older && $hasMore]]);
     }
 
     public function send(Request $request, Conversation $conversation, SendMessage $action)
@@ -102,7 +118,7 @@ class OperatorController extends Controller
 
     public function read(Request $request, Conversation $conversation)
     {
-        Gate::authorize('view', $conversation);
+        Gate::authorize('reply', $conversation);
         $data = $request->validate(['last_read_sequence' => ['required', 'integer', 'min:0']]);
         $read = DB::transaction(function () use ($request, $conversation, $data) {
             $conversation = Conversation::whereKey($conversation->id)->lockForUpdate()->firstOrFail();

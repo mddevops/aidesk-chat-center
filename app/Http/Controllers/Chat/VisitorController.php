@@ -83,7 +83,7 @@ class VisitorController extends Controller
     {
         $data = $request->validate(['after_sequence' => ['sometimes', 'integer', 'min:0']]);
         $conversation = $this->conversation($request);
-        $messages = $conversation ? Message::with('attachments')->where('conversation_id', $conversation->id)->where('kind', 'message')->where('sequence', '>', $data['after_sequence'] ?? 0)->orderBy('sequence')->limit(101)->get() : collect();
+        $messages = $conversation ? Message::with(['attachments', 'operator:id,name'])->where('conversation_id', $conversation->id)->where('kind', 'message')->where('sequence', '>', $data['after_sequence'] ?? 0)->orderBy('sequence')->limit(101)->get() : collect();
 
         $hasMore = $messages->count() > 100;
         $messages = $messages->take(100);

@@ -10,6 +10,35 @@ class Conversation extends Model
 {
     use BelongsToOrganization;
 
+    public function scopeVisibleTo($query, User $user)
+    {
+        if (! $user->hasPermission('chat.manage')) {
+            $query->where(function ($query) use ($user) {
+                $query->whereNull('department_id');
+                if ($user->department_id !== null) {
+                    $query->orWhere('department_id', $user->department_id);
+                }
+            });
+        }
+
+        return $query;
+    }
+
+    public function assignedUser()
+    {
+        return $this->belongsTo(User::class, 'assigned_user_id');
+    }
+
+    public function department()
+    {
+        return $this->belongsTo(Department::class);
+    }
+
+    public function latestMessage()
+    {
+        return $this->hasOne(Message::class)->latestOfMany();
+    }
+
     public function contact()
     {
         return $this->belongsTo(Contact::class);

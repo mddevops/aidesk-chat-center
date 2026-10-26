@@ -62,6 +62,6 @@ return Application::configure(basePath: dirname(__DIR__))
                 $payload['errors'] = $error->errors();
             }
 
-            return response()->json($payload, $status)->withHeaders(['Cache-Control' => 'private, no-store']);
+            return response()->json($payload, $status)->withHeaders([...($error instanceof HttpExceptionInterface ? $error->getHeaders() : []), 'Cache-Control' => 'private, no-store']);
         });
     })->create();

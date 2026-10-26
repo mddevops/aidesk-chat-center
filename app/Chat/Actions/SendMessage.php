@@ -63,7 +63,7 @@ class SendMessage
                 throw new ChatException('idempotency_conflict', 'Этот ключ уже использован для другого сообщения.');
             }
 
-            return [$existing->load('attachments'), false];
+            return [$existing->load(['attachments', 'operator']), false];
         }
         if ($conversation->status === 'closed') {
             throw new ChatException('conversation_closed', 'Диалог закрыт.');
@@ -90,7 +90,7 @@ class SendMessage
             $file->message_id = $message->id;
             $file->save();
         }
-        $event = ChatEvent::create(['event_id' => (string) Str::uuid(), 'event_type' => 'message.created', 'conversation_id' => $conversation->id, 'message_id' => $message->id, 'available_at' => now()]);
+        $event = ChatEvent::create(['event_id' => (string) Str::uuid(), 'event_type' => 'message.created', 'conversation_id' => $conversation->id, 'message_id' => $message->id, 'aggregate_version' => $conversation->version, 'available_at' => now()]);
         $tenant = (int) $conversation->organization_id;
         DB::afterCommit(function () use ($event, $tenant) {
             try {
@@ -100,6 +100,6 @@ class SendMessage
             }
         });
 
-        return [$message->load('attachments'), true];
+        return [$message->load(['attachments', 'operator']), true];
     }
 }

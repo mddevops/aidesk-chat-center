@@ -1,9 +1,17 @@
 <?php
 
 use App\Http\Controllers\Chat\OperatorController;
+use App\Http\Controllers\Chat\WorkflowController;
 use Illuminate\Support\Facades\Route;
 
-Route::prefix('api/v1')->middleware(['auth', 'tenant', 'throttle:120,1'])->group(function () {
+Route::prefix('api/v1')->middleware(['auth', 'tenant', 'throttle:operator-api'])->group(function () {
+    Route::get('/quick-replies', [WorkflowController::class, 'replies']);
+    Route::post('/quick-replies', [WorkflowController::class, 'storeReply']);
+    Route::patch('/quick-replies/{quickReply}', [WorkflowController::class, 'updateReply']);
+    Route::get('/conversations/{conversation}/activities', [WorkflowController::class, 'activities']);
+    foreach (['accept', 'assign', 'transition'] as $operation) {
+        Route::post('/conversations/{conversation}/'.$operation, [WorkflowController::class, 'change'])->name($operation);
+    }
     Route::get('/channels', [OperatorController::class, 'channels']);
     Route::post('/channels', [OperatorController::class, 'storeChannel']);
     Route::get('/conversations', [OperatorController::class, 'index']);

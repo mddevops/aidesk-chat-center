@@ -9,7 +9,7 @@ class ChatEvent extends Model
 {
     use BelongsToOrganization;
 
-    protected $fillable = ['event_id', 'event_type', 'conversation_id', 'message_id', 'available_at'];
+    protected $fillable = ['event_id', 'event_type', 'conversation_id', 'message_id', 'available_at', 'aggregate_version'];
 
     protected function casts(): array
     {

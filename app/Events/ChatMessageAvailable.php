@@ -7,7 +7,7 @@ use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 
 class ChatMessageAvailable implements ShouldBroadcastNow
 {
-    public function __construct(private int $tenant, private array $operators, private array $envelope) {}
+    public function __construct(private int $tenant, private array $operators, private array $envelope, private string $eventName = 'chat.message_available.v1') {}
 
     public function broadcastOn(): array
     {
@@ -16,7 +16,7 @@ class ChatMessageAvailable implements ShouldBroadcastNow
 
     public function broadcastAs(): string
     {
-        return 'chat.message_available.v1';
+        return $this->eventName;
     }
 
     public function broadcastWith(): array

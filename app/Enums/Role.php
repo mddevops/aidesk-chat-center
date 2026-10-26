@@ -21,8 +21,8 @@ enum Role: string
     public function permissions(): array
     {
         return match ($this) {
-            self::Owner, self::Admin => ['organization.manage', 'team.manage', 'directory.manage', 'chat.view', 'chat.reply', 'reports.view'],
-            self::Supervisor => ['chat.view', 'chat.reply', 'reports.view'],
+            self::Owner, self::Admin => ['organization.manage', 'team.manage', 'directory.manage', 'chat.manage', 'chat.view', 'chat.reply', 'reports.view'],
+            self::Supervisor => ['chat.manage', 'chat.view', 'chat.reply', 'reports.view'],
             self::Operator => ['chat.view', 'chat.reply'],
             self::Analyst => ['reports.view'],
         };

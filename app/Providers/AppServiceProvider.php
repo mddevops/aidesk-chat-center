@@ -24,9 +24,10 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Gate::policy(Conversation::class, ConversationPolicy::class);
-        foreach (['chat.view', 'chat.reply'] as $permission) {
+        foreach (['chat.view', 'chat.reply', 'chat.manage'] as $permission) {
             Gate::define($permission, fn ($user) => $user->hasPermission($permission));
         }
+        RateLimiter::for('operator-api', fn ($request) => Limit::perMinute($request->isMethod('GET') ? 600 : 120)->by(($request->user()?->id ?? $request->ip()).'|'.($request->isMethod('GET') ? 'read' : 'write')));
         RateLimiter::for('widget-sessions', fn ($request) => Limit::perMinute(20)->by($request->ip().'|'.$request->route('channelPublicId')));
         RateLimiter::for('widget-identify', fn ($request) => Limit::perMinute(10)->by($request->attributes->get('visitor_session')->id));
         RateLimiter::for('widget-messages', fn ($request) => Limit::perMinute(60)->by($request->attributes->get('visitor_session')->id));
