@@ -13,14 +13,14 @@
 - Pest infrastructure: 2 PASS, 8 assertions; MySQL persistence и реальная обработка Redis queue job с проверкой результата через cache.
 - Playwright desktop/mobile: 4 PASS; русский UI, сохранение темы, ширина viewport и настоящий WebSocket handshake Reverb.
 - Composer validate --strict PASS; composer audit без advisories; npm audit — 0 vulnerabilities.
-- Pint исправил 3 замечания; финальный --test выполняется перед коммитом.
+- Pint --test PASS (32 файла на этапе Foundation).
 
 Ограничения:
-- CI workflow создан; удалённый запуск проверяется после push. Локальные PASS не означают удалённый CI PASS.
+- Первый CI run 40383945611 остановился: tests/Unit был пуст и не попал в Git. Удалена ссылка на пустой suite; PHPUnit env/server overrides принудительно изолируют feature tests от Compose env. Повторный CI проверяется после push.
 - Chat, auth/tenant isolation, Inbox, widget/SDK, routing и CRM ещё не реализованы. Handshake не доказывает защищённые подписки или обмен сообщениями.
 - BLOCKED повторная сверка JIVO_ANALOG_SPEC.md: исходное вложение исчезло после обновления среды. Требования ранее прочитаны и основные положения перенесены в PROJECT_SPEC.md; полная копия не восстановлена.
 - Production deployment не выполнялся. Внешних интеграций нет.
 
 Следующий конкретный шаг: Phase 2 — login/logout, организации/салоны/сайты/отделы/роли, fail-closed tenant context и policies, отрицательные HTTP/query/realtime-тесты, затем русскоязычные административные экраны.
 
-Последний коммит до Foundation: `b9f0c54`. Коммит Foundation — коммит, содержащий этот статус (самоссылочный SHA не записывается); получить `git log -1 --oneline`.
+Последний завершённый этап: Foundation `9240b71`. Исправление конфигурации проверок — коммит, содержащий эту запись; получить `git log -1 --oneline`. Phase 2 сейчас в рабочем дереве и ещё не принята.
