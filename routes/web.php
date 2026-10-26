@@ -23,3 +23,5 @@ Route::middleware(['auth', 'tenant'])->prefix('settings')->group(function () {
     Route::post('/members', [OrganizationController::class, 'storeMember']);
     Route::patch('/members/{member}', [OrganizationController::class, 'updateMember']);
 });
+
+require __DIR__.'/operator.php';

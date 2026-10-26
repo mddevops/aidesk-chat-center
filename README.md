@@ -8,6 +8,7 @@
 - [Архитектура](ARCHITECTURE.md)
 - [План](ROADMAP.md)
 - [Фактический статус](IMPLEMENTATION_STATUS.md)
+- [Контракт Chat API v1](API_CHAT_V1.md)
 - [Локальный запуск](DEPLOYMENT.md)
 - [Правила разработки и проверки](AGENTS.md)
 - [Лицензии компонентов](THIRD_PARTY_NOTICES.md)

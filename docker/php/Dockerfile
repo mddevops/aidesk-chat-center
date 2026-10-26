@@ -6,5 +6,6 @@ RUN --mount=type=secret,id=proxy_ca,required=true \
     && docker-php-ext-install pdo_mysql pdo_sqlite pcntl intl zip bcmath \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
+COPY docker/php/zz-aidesk.ini /usr/local/etc/php/conf.d/zz-aidesk.ini
 WORKDIR /app
 CMD ["php", "artisan", "serve", "--host=0.0.0.0"]

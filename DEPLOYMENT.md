@@ -50,3 +50,15 @@ docker compose exec app php artisan aidesk:organization 'Название авт
 Для E2E на отдельной тестовой среде: `docker compose exec -T app php artisan db:seed --class=E2ESeeder`. Это только синтетические учётные записи `example.test` с известным тестовым паролем из исходника. Seeder запрещён вне local/testing и не перезаписывает существующие аккаунты; не применять его к рабочим данным. Обычный DatabaseSeeder не создаёт аккаунтов. После fixtures выполнить `npm run test:e2e`.
 
 Feature Pest принудительно использует testing/SQLite :memory:/array/sync через env и server overrides; этот suite не должен получать рабочую MySQL. Infrastructure suite не вызывает RefreshDatabase и выполняет probe с удалением только созданной тестовой записи/rollback транзакции, но всё равно запускается только в local/CI. CI HTTP server работает с APP_ENV=local, чтобы браузерный тест действительно проверял CSRF (419 без токена).
+
+## Chat Core / очередь событий
+
+После обновления: `docker compose exec -T app php artisan migrate --force`, затем `docker compose up -d app queue reverb scheduler`. Новый scheduler запускает `schedule:work`; production использует один scheduler/cron `php artisan schedule:run` каждую минуту и управляемые workers. В Compose после изменения кода долгоживущих jobs/config — `docker compose restart queue scheduler reverb`. Новый PHP ini согласует upload_max_filesize=10M и post_max_size=12M с лимитом приложения.
+
+Сообщение сначала фиксируется в MySQL вместе с outbox row. Очередь — ускорение обработки события после commit. Если enqueue не удался, scheduler снова подберёт событие. Ручной безопасный запуск: `docker compose exec -T app php artisan aidesk:dispatch-chat-events`. published_at — публикация уведомления Reverb, не подтверждение просмотра клиентом. Duplicate event_id возможен при восстановлении; клиент догружает HTTPS историю по sequence. Новые HTTP-запросы могут временно отказать при полном отказе Redis (session/cache/rate limiter); повторять с тем же client_message_id.
+
+Compose сохраняет внешний proxy и добавляет только внутренние сервисы mysql/redis/reverb/app в NO_PROXY. Без этого запросы PHP → Reverb в managed cloud могут ошибочно попасть во внешний proxy. Не отключать TLS и не обходить внешнюю сетевую политику.
+
+`API_CHAT_V1.md` описывает фактические endpoints и форматы. Website channel создаётся административным API; SDK/iframe и конструктор пока не созданы. Visitor credential не передавать в URL, логи или аналитику. Сессия не восстанавливается по телефону. Вложения приватные, скачиваются через проверяемый API; local storage route отключён. Сканер вредоносных файлов пока не подключён; перед production согласовать файловую и retention policy, юридический текст согласия.
+
+E2E поднимает синтетические сайты на портах 8091–8094 и проверяет реальный CORS, HTTP-обмен и Redis → Reverb notification. В CI обязательно нужен queue worker (добавлен в workflow). Эти страницы — тестовые hosts, не продуктовый виджет. Infrastructure tests проверяют конкурентную отправку в отдельных PHP-процессах на MySQL; удаляют только записи собственной синтетической probe-организации, не очищают общие таблицы.
