@@ -1,7 +1,7 @@
 # План
 
 1. Foundation: Laravel/React/Inertia/TS/Tailwind/UI, MySQL/Redis/Reverb, lock files, Pest/Playwright, CI, runbook. DONE; локальные gates и удалённый CI Foundation PASS, актуализировано до Laravel 13.
-2. Organizations & Access: реализованы организация/салон/сайт/отдел, пользователи, фиксированные роли/permissions, auth, tenant policies и админка. Локальные HTTP/query/FK/private subscription gates PASS; удалённый CI по статусу. Custom roles/multi-org membership не входят в этот инкремент.
+2. Organizations & Access: реализованы организация/салон/сайт/отдел, пользователи, фиксированные роли/permissions, auth, tenant policies и админка. Локальные HTTP/query/FK/private subscription gates PASS; удалённый CI run 40386939941 PASS. Custom roles/multi-org membership не входят в этот инкремент.
 3. Chat Core: контакты, защищённые visitor sessions, сообщения, идемпотентность, события, приватные вложения и durable очередь.
 4. Inbox: рабочие операторские экраны с реальными данными, назначения, заметки, фильтры и клиентская карточка.
 5. Widget Builder: draft/publish/versioning/preview, iframe SDK, форма имени/телефона, полный обмен посетитель ↔ оператор.
