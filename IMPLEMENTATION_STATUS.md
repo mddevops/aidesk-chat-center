@@ -70,7 +70,7 @@ BLOCKED: повторная полная сверка исходного JIVO_AN
 
 BLOCKED: исходный JIVO_ANALOG_SPEC.md по-прежнему недоступен для повторной полной сверки. Реальные внешние API/CRM требуют отдельных контрактов и тестовых доступов; это не блокирует Inbox.
 
-## Phase 4 — Inbox: реализован, локальные gates PASS; удалённый CI ожидается
+## Phase 4 — Inbox: реализован, локальные gates и GitHub Actions PASS
 
 Реализовано:
 - Защищённый `/inbox`: sidebar, входящие/мои/все, поиск по имени/телефону, status/channel/department filters, cursor pagination и серверные unread counts.
@@ -90,7 +90,8 @@ BLOCKED: исходный JIVO_ANALOG_SPEC.md по-прежнему недост
 - Pest infrastructure: 6 PASS, 25 assertions на MySQL/Redis. Два параллельных оператора: один accepted, другой version_conflict, одна activity; прежние durability/idempotency/sequence tests PASS.
 - Полный Playwright desktop/mobile: 12 PASS с 2 workers (1.0 мин). Новый Inbox сценарий проверяет реальный UI: live visitor message, приём, ответ с PDF, быстрый ответ, note privacy, потерю HTTP-ответа после commit и retry без дубля, передачу, ответ назначенного оператора, закрытие/возврат, темы/ширину viewport.
 - Скриншоты desktop light/dark и mobile просмотрены. Исправлен найденный 429 при общем лимите чтения/записи; финальный полный прогон PASS. Native OS notification popup не автоматизирован; UI permission opt-in реализован.
-- Pint --test PASS (87 файлов). Удалённый CI будет проверен после push.
+- Pint --test PASS (87 файлов). GitHub Actions для `4595baf`: run 40413980846 SUCCESS (audits, build, migrations, 42 Pest и 12 Playwright).
+  https://github.com/mddevops/aidesk-chat-center/actions/runs/40413980846
 
 Что ещё не работает/не реализовано:
 - Устанавливаемого iframe-виджета/SDK и Widget Builder пока нет. Тестовые visitor запросы не выдаются за установленный продуктовый виджет.
@@ -101,4 +102,4 @@ BLOCKED: исходный JIVO_ANALOG_SPEC.md по-прежнему недост
 
 Следующий конкретный шаг: Phase 5 — отдельная версия виджета для каждого сайта: draft/published/version history/optimistic publish, безопасный preview без session/chat/lead, iframe SDK с установкой одной строкой и реальным visitor → Inbox → visitor обменом на двух внешних сайтах. Начать с модели Widget/WidgetVersion и публичного published config; затем builder и изолированный runtime.
 
-Последние код-коммиты: Foundation `9240b71`, Access `845f5e4`, Chat domain/outbox `93f103b`, Chat API `8e7d751`, Inbox workflows `a515633`. UI Inbox и текущий статус — следующий коммит; точный последний SHA: `git log -1 --oneline`.
+Последние код-коммиты: Foundation `9240b71`, Access `845f5e4`, Chat domain/outbox `93f103b`, Chat API `8e7d751`, Inbox workflows `a515633`. UI Inbox и E2E `4595baf`. Последний status-коммит содержит эту запись; точный SHA: `git log -1 --oneline`.
