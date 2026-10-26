@@ -1,6 +1,6 @@
 # AIDesk Chat Center
 
-Самостоятельная платформа общения с клиентами автосалонов. Laravel 12 / PHP 8.3, React + Inertia + TypeScript, Tailwind, MySQL 8, Redis и Reverb.
+Самостоятельная платформа общения с клиентами автосалонов. Laravel 13 / PHP 8.3, React + Inertia + TypeScript, Tailwind, MySQL 8, Redis и Reverb.
 
 Рабочая ветка: `develop`. Стабильная: `main`. Production не развёрнут.
 

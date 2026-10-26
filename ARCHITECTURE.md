@@ -2,7 +2,7 @@
 
 ## Реализованная основа
 
-Laravel 12 (актуальная стабильная ветка, совместимая с PHP 8.3), React 19 / Inertia 2 / TypeScript, Tailwind 4. Собственные локальные UI-компоненты по MIT shadcn/ui и бесплатному ReUI. Composer platform PHP 8.3.0, точные версии — composer.lock/package-lock.json.
+Laravel 13 (актуальная стабильная ветка, совместимая с PHP 8.3), React 19 / Inertia 2 / TypeScript, Tailwind 4. Собственные локальные UI-компоненты по MIT shadcn/ui и бесплатному ReUI. Composer platform PHP 8.3.0, точные версии — composer.lock/package-lock.json.
 
 MySQL 8 — постоянные данные. Redis — кэш, зашифрованные сессии и очередь. Predis выбран вместо дополнительного нативного расширения. Reverb — отдельный процесс, ограничение origin. Echo создаётся по запросу после входа; секрет Reverb не попадает в Vite. Docker Compose предназначен для локальной разработки, PHP built-in server не предназначен для production.
 
