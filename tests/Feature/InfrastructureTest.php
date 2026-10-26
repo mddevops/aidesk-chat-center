@@ -2,6 +2,7 @@
 
 use App\Jobs\CheckQueueConnection;
 use App\Models\User;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -30,4 +31,17 @@ it('uses Redis cache and executes a durable Redis queue job', function () {
     expect(Cache::get($key))->toBeNull();
     Artisan::call('queue:work', ['connection' => 'redis', '--queue' => $queue, '--once' => true, '--tries' => 1]);
     expect(Cache::pull($key))->toBe('processed');
+})->group('infrastructure');
+
+it('enforces cross-organization showroom links at the MySQL constraint level', function () {
+    DB::beginTransaction();
+    try {
+        $a = DB::table('organizations')->insertGetId(['name' => 'Constraint probe A', 'created_at' => now(), 'updated_at' => now()]);
+        $b = DB::table('organizations')->insertGetId(['name' => 'Constraint probe B', 'created_at' => now(), 'updated_at' => now()]);
+        $showroom = DB::table('showrooms')->insertGetId(['organization_id' => $b, 'name' => 'Constraint probe', 'created_at' => now(), 'updated_at' => now()]);
+        expect(fn () => DB::table('sites')->insert(['organization_id' => $a, 'showroom_id' => $showroom, 'name' => 'Rejected link', 'origin' => 'https://constraint.example.test', 'created_at' => now(), 'updated_at' => now()]))
+            ->toThrow(QueryException::class);
+    } finally {
+        DB::rollBack();
+    }
 })->group('infrastructure');

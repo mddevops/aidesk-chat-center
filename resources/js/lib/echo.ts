@@ -12,7 +12,7 @@ export function createEcho() {
             forceTLS: import.meta.env.VITE_REVERB_SCHEME === 'https',
             enabledTransports: ['ws', 'wss'],
             cluster: '',
-            channelAuthorization: { endpoint: '/broadcasting/auth', transport: 'ajax' },
+            channelAuthorization: { endpoint: '/broadcasting/auth', transport: 'ajax', headersProvider: () => ({ 'X-XSRF-TOKEN': decodeURIComponent(document.cookie.split('; ').find(cookie => cookie.startsWith('XSRF-TOKEN='))?.slice('XSRF-TOKEN='.length) || '') }) },
         }),
     });
 }

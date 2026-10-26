@@ -36,3 +36,17 @@ REVERB_HOST — серверный адрес (reverb в Compose); VITE_REVERB_H
 ## Перед production
 
 Отдельные FPM/Nginx или поддерживаемый application server, TLS/WSS, APP_ENV=production, APP_DEBUG=false, secure cookies, доверенные прокси/hosts, секрет-хранилище, выделенные DB/Redis и отдельные учётные данные. Управляемые процессы queue/reverb, queue restart после релиза, миграции с backup/rollback plan. Обязательны проверка восстановления БД/приватных файлов, retention, метрики queue/outbox lag и провайдерских ошибок. Политики auth/tenant/visitor, load/security/restore gates должны пройти до разрешения запуска. Текущая Foundation не является готовым чат-продуктом.
+
+## Создание организации и вход (Phase 2)
+
+После миграций:
+
+```sh
+docker compose exec app php artisan aidesk:organization 'Название автодилера' 'owner@example.ru' --owner-name='Имя владельца'
+```
+
+Команда запросит скрытый пароль (от 12 символов, буквы и цифры). Не передавать пароль аргументом shell. Затем открыть `/login`. Владелец создаёт автосалоны, отделы, сайты и сотрудников на `/settings/organization`. Текущий пользователь закреплён за одной организацией. Роли фиксированы; изменение владельца и собственной роли из UI запрещено. Отзыв доступа действует на следующий HTTP/auth-запрос; отзыв уже открытых бизнес-подписок будет реализован до отправки chat events.
+
+Для E2E на отдельной тестовой среде: `docker compose exec -T app php artisan db:seed --class=E2ESeeder`. Это только синтетические учётные записи `example.test` с известным тестовым паролем из исходника. Seeder запрещён вне local/testing и не перезаписывает существующие аккаунты; не применять его к рабочим данным. Обычный DatabaseSeeder не создаёт аккаунтов. После fixtures выполнить `npm run test:e2e`.
+
+Feature Pest принудительно использует testing/SQLite :memory:/array/sync через env и server overrides; этот suite не должен получать рабочую MySQL. Infrastructure suite не вызывает RefreshDatabase и выполняет probe с удалением только созданной тестовой записи/rollback транзакции, но всё равно запускается только в local/CI. CI HTTP server работает с APP_ENV=local, чтобы браузерный тест действительно проверял CSRF (419 без токена).

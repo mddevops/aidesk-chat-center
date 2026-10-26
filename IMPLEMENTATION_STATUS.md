@@ -21,6 +21,27 @@
 - BLOCKED повторная сверка JIVO_ANALOG_SPEC.md: исходное вложение исчезло после обновления среды. Требования ранее прочитаны и основные положения перенесены в PROJECT_SPEC.md; полная копия не восстановлена.
 - Production deployment не выполнялся. Внешних интеграций нет.
 
-Следующий конкретный шаг: Phase 2 — login/logout, организации/салоны/сайты/отделы/роли, fail-closed tenant context и policies, отрицательные HTTP/query/realtime-тесты, затем русскоязычные административные экраны.
+## Phase 2 — Organizations & Access: реализована, локальные проверки PASS
 
-Последний завершённый этап: Foundation `9240b71`. Исправление конфигурации проверок — коммит, содержащий эту запись; получить `git log -1 --oneline`. Текущие зависимости обновлены до актуального Laravel 13.38.0/Pest 4.7.8; PHP platform check PASS на 8.3.36. Tinker удалён как неиспользуемый и несовместимый с Laravel 13. Phase 2 сейчас в рабочем дереве; приёмка завершается.
+Код:
+- Организации/автосалоны/сайты/отделы и связи сотрудников; составные FK tenant.
+- Login/logout с CSRF, rate limiting, session regeneration и отключением аккаунта. Публичной регистрации нет; CLI `aidesk:organization` создаёт владельца со скрытым вводом пароля.
+- Фиксированные роли Owner/Admin/Supervisor/Operator/Analyst и permissions. Запрет повышения привилегий, изменения владельца/собственной роли.
+- Scoped TenantContext, fail-closed query scope, проверка writes, tenant-aware route binding и policies.
+- Рабочая русская админка: создание/редактирование салонов, отделов, сайтов; создание сотрудников, назначение роли/отдела, отключение доступа. Light/dark/mobile; безопасные сообщения validation/error pages.
+- Авторизация приватного Reverb-канала конкретного оператора своей организации; Echo CSRF из актуального XSRF cookie.
+
+Проверки после обновления на Laravel 13.38.0/Pest 4.7.8:
+- 14 Pest feature PASS, 128 assertions: login, active/tenant restrictions, query/write/policy/IDOR, role escalation, связи, настройки, CLI, private channel auth.
+- 3 Pest infrastructure PASS, 9 assertions: MySQL 8 persistence, реальная Redis queue processing, cross-tenant FK rejection.
+- TypeScript/Vite build PASS, Pint --test PASS (49 файлов), Composer validate и PHP 8.3 platform requirements PASS. Composer audit без advisories; npm audit 0 vulnerabilities.
+- Playwright после обновления Laravel 13: 8 desktop/mobile PASS (16.3 с), включая реальные CRUD/login, CSRF 419, private subscription success и foreign tenant 403.
+- Первый удалённый CI Foundation падал из-за отсутствующего пустого tests/Unit; исправлен `d0cbf92`, run 40385249255 SUCCESS. CI нового кода проверяется после push.
+
+Не реализовано: пользовательский редактор ролей, multi-org membership, password reset/invites/MFA, audit UI, чат/Inbox/SDK/виджеты/маршрутизация/CRM. Текущие роли и отделы не означают готовые права на будущие диалоги. Бизнес-события по WebSocket ещё не передаются; отзыв активных соединений и visitor subscriptions впереди. Данные через UI не удаляются, production deployment не выполнялся.
+
+BLOCKED: повторная полная сверка исходного JIVO_ANALOG_SPEC.md — вложение недоступно после обновления среды. Требования пользователя и ранее прочитанный документ учтены; полная копия не выдумана. Реальные внешние каналы/CRM требуют отдельных тестовых доступов и контрактов.
+
+Следующий конкретный шаг: Phase 3 — создать tenant-scoped Contacts/VisitorSessions/Conversations/Messages; нормализацию телефона и browser credentials; серверный запрет сообщений до идентификации, sequence и идемпотентность с payload conflict. Сначала отрицательные tests (same phone ≠ history, tenant isolation, internal note exclusion), затем API и durable message flow. К Inbox переходить после этого gate.
+
+Последние завершённые коммиты: Foundation `9240b71`, test isolation `d0cbf92`, актуальные Laravel/Pest `61a5ec2`. Phase 2 — коммит, содержащий этот статус; точный SHA: `git log -1 --oneline`.

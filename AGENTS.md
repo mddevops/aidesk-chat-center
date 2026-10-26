@@ -4,7 +4,7 @@
 - Источник требований PROJECT_SPEC.md и исходный JIVO_ANALOG_SPEC.md при доступности. Сверять IMPLEMENTATION_STATUS.md до продолжения.
 - Отдельный проект; не менять CRM V2, Landflow, Jivo. Production deployment требует подтверждения пользователя. Не удалять существующие данные.
 - Русский UI, light/dark, mobile. Только бесплатно лицензированные UI-компоненты; лицензии в THIRD_PARTY_NOTICES.md.
-- Tenant из authenticated context. Tenant policies + query isolation + private channel authorization обязательны. Недостаточно фильтра UI.
+- Текущий пользователь закреплён за одной организацией, роли — enum Role. Organization/User без global scope нужны auth/CLI; в HTTP User всегда выбирать с organization_id из контекста. Для Showroom/Department/Site действует fail-closed global scope. Tenant из authenticated context. Tenant policies + query isolation + private channel authorization обязательны. Недостаточно фильтра UI.
 - Visitor history только по защищённому browser credential; телефон не авторизует. Внутренние заметки никогда не включать в visitor stream.
 - Durable messages, idempotency с проверкой payload и прав, realtime после commit, integration outbox. Никаких фальшивых подключений.
 - Не коммитить .env/ключи/пароли/production payload, не печатать секреты. Не отключать TLS. Lock files обязательны.
@@ -19,7 +19,7 @@
 - `docker compose exec -T app vendor/bin/pint --test`
 - `docker compose exec -T app vendor/bin/pest` — быстрые feature tests, infrastructure исключена.
 - `docker compose exec -T app vendor/bin/pest --group=infrastructure -c phpunit.infrastructure.xml` — только локальная/CI тестовая БД, реальная MySQL/Redis/очередь.
-- `npx playwright install chromium && npm run test:e2e` — нужны app:8000 и reverb:8080.
+- `npx playwright install chromium && npm run test:e2e` — нужны app:8000, reverb:8080 и E2ESeeder только в отдельной local/testing среде. При read-only home задать PLAYWRIGHT_BROWSERS_PATH=/tmp/aidesk-browsers.
 - Не запускать destructive migrate:fresh на существующей БД. Setup — DEPLOYMENT.md.
 
 ## Продолжение

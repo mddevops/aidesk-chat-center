@@ -71,10 +71,11 @@ jobs:
       - run: php artisan migrate --force
       - run: vendor/bin/pest --exclude-group=infrastructure
       - run: vendor/bin/pest --group=infrastructure -c phpunit.infrastructure.xml
+      - run: php artisan db:seed --class=E2ESeeder --force
       - run: npx playwright install --with-deps chromium
       - name: Start application and Reverb
         run: |
-          php artisan serve --host=127.0.0.1 --port=8000 > /tmp/aidesk-http.log 2>&1 &
+          APP_ENV=local php artisan serve --host=127.0.0.1 --port=8000 > /tmp/aidesk-http.log 2>&1 &
           php artisan reverb:start --host=127.0.0.1 --port=8080 > /tmp/aidesk-reverb.log 2>&1 &
           for attempt in $(seq 1 30); do curl --fail -s http://127.0.0.1:8000/up && break || sleep 1; done
       - run: npm run test:e2e
