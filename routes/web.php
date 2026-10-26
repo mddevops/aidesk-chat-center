@@ -1,10 +1,12 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\Chat\InboxController;
 use App\Http\Controllers\OrganizationController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
+Route::get('/inbox', InboxController::class)->middleware(['auth', 'tenant'])->name('inbox');
 Route::get('/', fn () => Inertia::render('Welcome'))->name('home');
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'create'])->name('login');

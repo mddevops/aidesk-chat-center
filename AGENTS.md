@@ -37,4 +37,14 @@
 - После commit enqueue best-effort; pending outbox восстанавливает scheduler. PublishChatEvent получает явный tenant и очищает/восстанавливает context. At-least-once events дедуплицируются по event_id; sequence — источник восстановления истории.
 - Для history >100 записей использовать meta.next_after_sequence/has_more, не прыгать сразу к meta.last_sequence.
 - Инфраструктурные и E2E tests создают только синтетические данные. Для настоящей realtime проверки запустить queue, reverb и scheduler. При изменении job-кода перезапустить долгоживущие процессы.
-- Phase 4 не должна считать API-готовность готовым Inbox/SDK. Visitor realtime, routing/accept/transition, department visibility, presence и подтверждения доставки пока не реализованы.
+- Inbox и ручные accept/assign/transition/department visibility реализованы в Phase 4. Не путать их с готовым SDK или автоматической маршрутизацией. Visitor realtime/presence/provider delivery ещё впереди.
+
+## Inbox workflows
+
+- Для списков Conversation применять visibleTo(user), для объектов/сообщений/files/activity — ConversationPolicy. Operator: общий пул/свой отдел, reply/read/transition только своего принятого диалога. Manager: свой tenant. Ни UI permissions, ни cached idempotency не заменяют серверную policy.
+- Все команды accept/assign/transition требуют version и lockForUpdate. Не делать прямой update назначения из controller/UI. Сохранять activity + control outbox в той же транзакции. Target operator должен быть активным и подходить по отделу.
+- Nullable chat_events.message_id обозначает control event. Не откатывать publisher на старый без отдельного плана сохранности outbox.
+- Echo получает только минимальные envelope; проверять view policy каждого получателя. UI fetches проверяются повторно. Наблюдение не меняет marker; mark read только видимого конца переписки.
+- Сетевой retry сообщения использует прежний client_message_id и payload. Не создавать новый ID автоматически после неопределённого HTTP исхода. Memory drafts не считать сохранением после reload.
+- Browser notifications только после клика; не включать PII в OS notification. Читать статус realtime только после private subscription success.
+- E2E Inbox проверяет реальный UI desktop/mobile, retry после commit/потери ответа, notes/files/quick replies, передачу, ответ назначенного оператора и закрытие/возврат. Не заменять этот gate API-only тестом.

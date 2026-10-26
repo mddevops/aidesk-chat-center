@@ -70,6 +70,35 @@ BLOCKED: повторная полная сверка исходного JIVO_AN
 
 BLOCKED: исходный JIVO_ANALOG_SPEC.md по-прежнему недоступен для повторной полной сверки. Реальные внешние API/CRM требуют отдельных контрактов и тестовых доступов; это не блокирует Inbox.
 
-Следующий конкретный шаг: Phase 4 — защищённый `/inbox`, реальный список/поиск/фильтры диалогов, переписка/заметки/вложения, правая карточка контакта и подписка Echo с догрузкой по sequence. Назначение/принятие/переходы статусов реализовывать атомарными серверными действиями с policies и version, а не неработающими кнопками. Затем Phase 5 — iframe SDK и Widget Builder.
+## Phase 4 — Inbox: реализован, локальные gates PASS; удалённый CI ожидается
 
-Последние код-коммиты: Foundation `9240b71`, test isolation `d0cbf92`, Laravel/Pest `61a5ec2`, Access `845f5e4`, Chat domain/outbox `93f103b`. Chat API/security/E2E `8e7d751`. Последний status-коммит содержит эту запись; точный SHA: `git log -1 --oneline`.
+Реализовано:
+- Защищённый `/inbox`: sidebar, входящие/мои/все, поиск по имени/телефону, status/channel/department filters, cursor pagination и серверные unread counts.
+- Центральная переписка: последние 100 сообщений, загрузка ранних страниц, догрузка sequence, обычные ответы/внутренние заметки, файлы, авторы и truthful stored marker.
+- Composer с Ctrl+Enter, private uploads, управляемыми быстрыми ответами и memory drafts по диалогу. После неопределённого HTTP исхода повторяет прежний client_message_id/payload.
+- Карточка клиента с контактом, ответственным, отделом, поиском прошлых обращений, приёмом/передачей/закрытием/возвратом и журналом команд.
+- Атомарные серверные accept/assign/transition с version/lock/policy, проверкой active/role/department назначения. Activity и control outbox фиксируются вместе с изменением.
+- Operator visibility: общий пул и свой отдел; observer не отправляет и не меняет read marker. Managers работают по своему tenant. Realtime publisher фильтрует получателей актуальной policy.
+- Echo private subscription, event_id dedup, version guard, reconnect/focus/online/polling recovery, in-app alerts и opt-in browser notifications без PII. Online label только после private subscription success.
+- Light/dark и mobile: переключение списка/переписки, native dialog карточки с focus/Escape, safe area и повышенный контраст dark accent.
+- Quotas чтения/записи разделены (600 GET/120 mutations в минуту), чтобы polling не блокировал команды; Retry-After сохранён в JSON errors.
+
+Проверено:
+- Миграция на существующей локальной MySQL 8 PASS; queue/scheduler/reverb перезапущены. Существующие данные не удалялись.
+- `npm run build` PASS (strict TypeScript, Vite 5.59 с); `git diff --check` PASS; Composer validate --strict PASS. Новых зависимостей нет, lock files не менялись.
+- Pest feature: 36 PASS, 326 assertions. Policies/tenant/department, unread и observers, версии/переходы/назначения, active/mismatched/foreign targets, tenant quick replies, history pagination, realtime recipients, page auth/metadata.
+- Pest infrastructure: 6 PASS, 25 assertions на MySQL/Redis. Два параллельных оператора: один accepted, другой version_conflict, одна activity; прежние durability/idempotency/sequence tests PASS.
+- Полный Playwright desktop/mobile: 12 PASS с 2 workers (1.0 мин). Новый Inbox сценарий проверяет реальный UI: live visitor message, приём, ответ с PDF, быстрый ответ, note privacy, потерю HTTP-ответа после commit и retry без дубля, передачу, ответ назначенного оператора, закрытие/возврат, темы/ширину viewport.
+- Скриншоты desktop light/dark и mobile просмотрены. Исправлен найденный 429 при общем лимите чтения/записи; финальный полный прогон PASS. Native OS notification popup не автоматизирован; UI permission opt-in реализован.
+- Pint --test PASS (87 файлов). Удалённый CI будет проверен после push.
+
+Что ещё не работает/не реализовано:
+- Устанавливаемого iframe-виджета/SDK и Widget Builder пока нет. Тестовые visitor запросы не выдаются за установленный продуктовый виджет.
+- Round-robin/least-load/fallback, графики/presence, авто-переназначение при отключении/смене отдела и visitor realtime — Phase 6. Ручное назначение работает, но не считается автоматической маршрутизацией.
+- Memory drafts не переживают reload/logout; надёжно сохранённые сообщения восстанавливаются через API.
+- Global audit UI, custom roles, MFA/reset/invites, антивирус, load/restore acceptance и реальные CRM/внешние каналы остаются впереди. Production deployment не выполнялся.
+- BLOCKED повторная полная сверка JIVO_ANALOG_SPEC.md: исходное вложение недоступно. Это не блокирует следующий этап по зафиксированным требованиям.
+
+Следующий конкретный шаг: Phase 5 — отдельная версия виджета для каждого сайта: draft/published/version history/optimistic publish, безопасный preview без session/chat/lead, iframe SDK с установкой одной строкой и реальным visitor → Inbox → visitor обменом на двух внешних сайтах. Начать с модели Widget/WidgetVersion и публичного published config; затем builder и изолированный runtime.
+
+Последние код-коммиты: Foundation `9240b71`, Access `845f5e4`, Chat domain/outbox `93f103b`, Chat API `8e7d751`, Inbox workflows `a515633`. UI Inbox и текущий статус — следующий коммит; точный последний SHA: `git log -1 --oneline`.

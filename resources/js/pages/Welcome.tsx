@@ -19,7 +19,7 @@ export default function Welcome() {
                 <div className="mt-12 grid gap-5 sm:grid-cols-3">
                     {[{ icon: MessageSquare, title: 'Диалоги', text: 'Виджет сайта и рабочее место оператора.' }, { icon: ShieldCheck, title: 'Безопасный доступ', text: 'Разделение организаций и серверная проверка прав.' }, { icon: Layers3, title: 'Ваши сайты', text: 'Независимые настройки виджетов для каждого сайта.' }].map(({ icon: Icon, title, text }) => <article key={title} className="rounded-2xl border border-border bg-card p-6"><Icon className="mb-5 text-primary" size={24} /><h2 className="font-semibold">{title}</h2><p className="mt-2 text-sm leading-6 text-muted-foreground">{text}</p></article>)}
                 </div>
-                <div className="mt-8 flex items-start gap-3 rounded-xl border border-border p-5 text-sm text-muted-foreground"><ArrowUpRight className="shrink-0" size={20} /><p>Платформа в разработке. Доступны вход и настройки организации. Обмен сообщениями ещё не подключён.</p></div>
+                <div className="mt-8 flex items-start gap-3 rounded-xl border border-border p-5 text-sm text-muted-foreground"><ArrowUpRight className="shrink-0" size={20} /><p>Платформа в разработке. Доступны кабинет команды, настройки и рабочее место оператора. Устанавливаемый виджет сайта готовится.</p></div>
             </main>
             <footer className="px-5 pb-8 text-center text-xs text-muted-foreground">AIDesk · Создано для внимательного сервиса</footer>
         </div>
