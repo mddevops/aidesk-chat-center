@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "target": "ES2022", "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext", "moduleResolution": "Bundler", "jsx": "react-jsx",
+    "strict": true, "noEmit": true, "isolatedModules": true,
+    "esModuleInterop": true, "skipLibCheck": true,
+    "baseUrl": ".", "paths": {"@/*": ["resources/js/*"]},
+    "types": ["vite/client", "node"]
+  },
+  "include": ["resources/js/**/*.ts", "resources/js/**/*.tsx", "vite.config.ts", "playwright.config.ts", "tests/e2e/**/*.ts"]
+}
