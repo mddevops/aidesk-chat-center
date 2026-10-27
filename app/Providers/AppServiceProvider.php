@@ -13,6 +13,7 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Str;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -27,6 +28,15 @@ class AppServiceProvider extends ServiceProvider
         foreach (['chat.view', 'chat.reply', 'chat.manage'] as $permission) {
             Gate::define($permission, fn ($user) => $user->hasPermission($permission));
         }
+        RateLimiter::for('login', function ($request) {
+            $email = $request->input('email');
+            $account = is_string($email) ? Str::lower(trim($email)) : '';
+
+            return [
+                Limit::perMinute(60)->by('ip:'.$request->ip()),
+                Limit::perMinute(20)->by('account:'.$request->ip().'|'.hash('sha256', $account)),
+            ];
+        });
         RateLimiter::for('operator-api', fn ($request) => Limit::perMinute($request->isMethod('GET') ? 600 : 120)->by(($request->user()?->id ?? $request->ip()).'|'.($request->isMethod('GET') ? 'read' : 'write')));
         RateLimiter::for('widget-sessions', fn ($request) => Limit::perMinute(20)->by($request->ip().'|'.$request->route('channelPublicId')));
         RateLimiter::for('widget-identify', fn ($request) => Limit::perMinute(10)->by($request->attributes->get('visitor_session')->id));

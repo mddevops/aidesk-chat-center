@@ -12,7 +12,7 @@ Route::get('/inbox', InboxController::class)->middleware(['auth', 'tenant'])->na
 Route::get('/', fn () => Inertia::render('Welcome'))->name('home');
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'create'])->name('login');
-    Route::post('/login', [AuthController::class, 'store'])->middleware('throttle:20,1');
+    Route::post('/login', [AuthController::class, 'store'])->middleware('throttle:login');
 });
 Route::post('/logout', [AuthController::class, 'destroy'])->middleware('auth')->name('logout');
 Route::middleware(['auth', 'tenant'])->prefix('settings')->group(function () {
