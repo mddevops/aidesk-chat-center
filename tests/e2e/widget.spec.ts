@@ -33,11 +33,16 @@ test('published iframe SDK exchanges real messages with Inbox and isolates websi
     await page.screenshot({path:info.outputPath('builder.png'),fullPage:true,animations:'disabled'});
     const context=await browser.newContext({viewport:info.project.use.viewport,isMobile:info.project.use.isMobile,hasTouch:info.project.use.hasTouch});
     try{
-        const visitor=await context.newPage();visitor.setDefaultTimeout(15000);await visitor.goto(`http://127.0.0.1:${ports[0]}/?channel=${channel}`);
+        const visitor=await context.newPage();visitor.setDefaultTimeout(15000);
+        const realtimeEvents:{event:string;data:string}[]=[];
+        let disconnect:undefined|(()=>void);let sockets=0;let holdReconnect=false;let releaseReconnect:undefined|(()=>void);
+        await visitor.routeWebSocket(new RegExp('^ws://(?:127[.]0[.]0[.]1|localhost):8080/'),async route=>{sockets++;if(holdReconnect)await new Promise<void>(resolve=>{releaseReconnect=resolve;});route.connectToServer();disconnect=()=>route.close({code:1012,reason:'Проверка восстановления'});});
+        visitor.on('websocket',socket=>socket.on('framereceived',frame=>{try{const event=JSON.parse(String(frame.payload));if(event.event==='chat.visitor_changed.v1')realtimeEvents.push(event);}catch{}}));await visitor.goto(`http://127.0.0.1:${ports[0]}/?channel=${channel}`);
         await visitor.getByRole('button',{name:'Написать нам'}).click();
         const chat=visitor.frameLocator('iframe[title]');await expect(chat.getByText(`Чат SDK ${suffix}`,{exact:true})).toBeVisible();
         await chat.getByRole('button',{name:'Начать чат',exact:true}).click();
         await chat.getByLabel('Ваше имя').fill(`Посетитель SDK ${suffix}`);await chat.getByLabel('Телефон',{exact:true}).fill('8 (999) 987-65-43');await chat.getByRole('checkbox').check();await chat.getByRole('button',{name:'Продолжить',exact:true}).click();
+        await expect(chat.getByText('Обновления подключены',{exact:true})).toBeVisible();
         const text=`Вопрос из настоящего виджета ${suffix}`;await chat.getByLabel('Ваше сообщение').fill(text);await chat.getByRole('button',{name:'Отправить',exact:true}).click();await expect(chat.getByText(text,{exact:true})).toBeVisible();
         const retryText=`Повтор без дубля ${suffix}`;
         await chat.getByLabel('Прикрепить файл',{exact:true}).setInputFiles({name:'visitor.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.7\nWidget visitor offer\n%%EOF')});
@@ -58,6 +63,19 @@ test('published iframe SDK exchanges real messages with Inbox and isolates websi
         await page.getByRole('button',{name:'Принять диалог',exact:true}).click();
         if(info.project.name==='mobile')await page.getByRole('button',{name:'Закрыть карточку клиента',exact:true}).click();
         const reply=`Ответ в установленный виджет ${suffix}`;await page.getByLabel('Сообщение клиенту',{exact:true}).fill(reply);await page.getByRole('button',{name:'Отправить',exact:true}).click();await expect(chat.getByText(reply,{exact:true})).toBeVisible({timeout:12000});
+        await chat.getByText(reply,{exact:true}).scrollIntoViewIfNeeded();
+        await expect(page.getByRole('log').getByLabel('Прочитано посетителем').first()).toBeVisible({timeout:15000});
+        await expect(chat.getByText(/Прочитано оператором/).first()).toBeVisible({timeout:15000});
+        await expect.poll(()=>realtimeEvents.length).toBeGreaterThan(0);
+        expect(JSON.stringify(realtimeEvents)).not.toContain(reply);
+        expect(disconnect).toBeDefined();const beforeSockets=sockets;holdReconnect=true;disconnect!();
+        await expect.poll(()=>sockets).toBeGreaterThan(beforeSockets);
+        await expect(chat.getByText('Обновления подключены',{exact:true})).toHaveCount(0);
+        const restoredReply=`После reconnect ${suffix}`;await page.getByLabel('Сообщение клиенту',{exact:true}).fill(restoredReply);await page.getByRole('button',{name:'Отправить',exact:true}).click();
+        await expect(page.getByRole('log').getByText(restoredReply,{exact:true})).toBeVisible();
+        holdReconnect=false;releaseReconnect!();
+        await expect(chat.getByText('Обновления подключены',{exact:true})).toBeVisible({timeout:15000});
+        await expect(chat.getByText(restoredReply,{exact:true})).toBeVisible({timeout:5000});
         await visitor.reload();await visitor.getByRole('button',{name:'Написать нам'}).click();await expect(chat.getByText(reply,{exact:true})).toBeVisible();await expect(chat.getByLabel('Ваше имя')).toHaveCount(0);
         if(info.project.name==='mobile'){const box=await visitor.locator('iframe[title]').boundingBox();expect(box!.width).toBe(visitor.viewportSize()!.width);expect(box!.height).toBe(visitor.viewportSize()!.height);}
         await visitor.screenshot({path:info.outputPath('widget.png'),animations:'disabled'});
