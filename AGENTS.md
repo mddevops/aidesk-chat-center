@@ -57,3 +57,15 @@
 - postMessage только с точным origin/source/targetOrigin; bearer не попадёт в iframe URL, публичный config, лог или cookie приложения. SDK session bootstrap остаётся запросом сайта; не разрешать app Origin для произвольного bootstrap вместо сайта.
 - Отделы доступны только из published tenant allowlist; выбранный отдел фиксируется в visitor session до первого Conversation. Не расширять fillable Conversation для обхода command policies.
 - `tests/e2e/widget.spec.ts` проверяет настоящий one-script SDK на двух внешних origin, UI builder/publish, visitor identity, Inbox reply, reload/history и изоляцию. HTTP polling в Phase 5 не считать реализованным visitor Reverb.
+
+## Realtime / Routing
+
+- Visitor подписки: bearer `/realtime` + `/broadcasting/auth` внутри widget middleware. Подписывать только точное private имя текущей session и валидный socket_id. Не использовать operator guard/cookie для visitor или credential в URL.
+- В visitor событиях только минимальный публичный hint; notes не публикуются. Publisher проверяет session expiry/revocation/channel activity; API всегда проверяет credential повторно. Reconnect и пропущенный refresh догружают sequence; polling fallback 15 с.
+- Receipts не повышают command version. GET/WS publication не означают delivery/read; нужны монотонные ACK только существующего public sequence. Не включать private note sequence в visitor read metadata. Retry ACK не создаёт event повторно.
+- Для routing и message/workflow writes сохранять порядок Organization → Conversation → Users/OperatorStates; visitor сначала блокирует собственную VisitorSession. Изменение схемы lock требует MySQL concurrency gate. Не выбирать оператора по counts до coordination lock.
+- Автоназначение: свежие active/role/tenant/department/heartbeat/capacity/schedule, включая reserve; отсутствующий кандидат остаётся pending. Ручное назначение — override capacity. Rule key global отличается от department:id, optimistic revision обязательна.
+- User heartbeat содержит revision; stale tab не возвращает offline оператора в available. Logout увеличивает revision. Scheduler route-pending должен обходить очередь пакетами, а не повторять первые 500 записей бесконечно.
+- Системный audit actor=null отображается «Система». Не удалять audit для rollback. Shared feature fixtures находятся в tests/Support/ChatFixtures.php, подключаются из Pest.php, отдельные файлы тестов должны запускаться самостоятельно.
+
+- Login limiter двухуровневый: account+IP 20/мин, IP 60/мин; email нормализуется как в AuthController. Не отключать limiter для E2E. LoginRateLimitTest проверяет общий офисный NAT, нормализацию аккаунта, IP ceiling и Retry-After; прежний failed-password limiter 5 сохраняется.

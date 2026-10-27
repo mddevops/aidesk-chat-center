@@ -133,3 +133,31 @@ BLOCKED: исходный JIVO_ANALOG_SPEC.md по-прежнему недост
 Последние код-коммиты: `61f1bd1` (Widget domain/publish/access/departments), `6a6360b` (builder/runtime/SDK/E2E/CI origin). Последний status-коммит: см. `git log -1 --oneline`.
 
 Следующий конкретный шаг: Phase 6 — visitor private Reverb auth с browser credential, минимальные события без PII и sequence recovery; затем атомарные routing rules round-robin/least-load/fallback с tenant/department/active/availability checks и конкурентными MySQL tests. Сохранить HTTP recovery fallback, не заменять проверенный SDK макетом.
+
+## Phase 6 — Realtime, receipts и routing MVP: локальные gates и CI PASS (27.10.2026)
+
+Реализовано:
+- Visitor private Reverb: отдельные bearer metadata/auth endpoints, точное имя своей session, socket validation и отсутствие operator cookie guard. Publisher исключает notes, revoked/expired session и inactive channel; envelope без body/phone/attachments.
+- SDK Echo subscription success, event dedup, sequence recovery на reconnect, очередь refresh при входящем событии во время другого refresh, HTTP fallback/revalidation 15 с.
+- Delivery/read ACK: server persisted monotonic markers, stored/delivered/read в history/meta и UI. GET/WS publication не означают доставку; read при видимом конце, включая явную прокрутку. Receipt outbox не повышает command version, повтор ACK не создаёт событие, visitor metadata не показывает private note sequence.
+- `/settings/routing`: versioned channel/department rules, round-robin/least-load, основной pool/reserve, capacity, weekly day schedule в timezone организации. Own availability в Inbox: available/away/offline, heartbeat 30 с / TTL 90 с, revision против stale tab, logout сразу offline.
+- Auto-selection при первом сообщении, повтор pending scheduler раз в минуту пакетами 100 в зафиксированном диапазоне; неподходящая команда оставляет сообщение/диалог в pending. Active/role/tenant/department/schedule/lease/capacity проверяются повторно, reserve проходит те же проверки.
+- Organization coordination lock + единый порядок Conversation/Users/State для устранения гонок capacity/least-load. Assignment/system activity/outbox атомарны. Nullable system actor отображается «Система».
+- Отдельные shared test fixtures для запуска выбранных Pest файлов без зависимости от загрузки ChatCoreTest.php.
+
+Проверено к моменту записи:
+- Миграции 000003/000004 на существующей локальной MySQL PASS; данные не удалялись, queue/scheduler/reverb перезапущены.
+- Pest feature 47 PASS (493 assertions); infrastructure 7 PASS (29 assertions), включая 4 одновременных посетителя, 2 оператора capacity=1: два разных назначения и два pending. Отдельный финальный Routing/Receipt прогон 6 PASS (91 assertions).
+- Build strict TS/Vite PASS (4.98 с после финальной правки scroll/read), Pint --test PASS (110 файлов), Composer validate --strict PASS, git diff --check PASS. Новых зависимостей нет.
+- До receipts полный новый widget/routing прогон 4 PASS (43.3 с): реальные visitor private WS frames, reconnect c удержанием нового сокета и ответом в разрыве, UI routing/availability/capacity desktop/mobile.
+- После receipts полный browser suite первоначально 15/16 PASS: desktop read test ожидал read у сообщения ниже видимой области. Исправлены layout scroll и explicit read при прокрутке, тест явно показывает ответ. Финальный полный Playwright: 16/16 PASS с 2 workers (1.6 мин), включая реальный private WS, ответ в разрыве соединения/reconnect recovery, read receipts, routing UI, capacity, старые access/core/Inbox scenarios. Gate закрыт.
+- Первый GitHub Actions Phase 6 run 40481656610: build/migrations/audits/Pest PASS, Playwright 14/16. Артефакты подтвердили POST /login=429 в двух mobile tests: прежний общий 20/min IP quota блокировал разные аккаунты за одним NAT. Исправлен двухуровневый login limiter: 20/account+IP и 60/IP, существующий failed-password=5 сохраняется. Добавлены 3 regression tests, итоговый feature suite 50 PASS (741 assertions). Исправление `695e476`: GitHub Actions run 40490297394 SUCCESS — 50 feature PASS (741 assertions), 7 infrastructure PASS (29 assertions), 16 Playwright PASS (33.1 с), без flaky/retry; audits/build/Pint/migrations PASS. https://github.com/mddevops/aidesk-chat-center/actions/runs/40490297394. Локальный повтор браузера после перезапуска среды остановился до тестов из-за отсутствующего Chromium; браузер восстановлен, соответствующий полный gate подтверждён CI.
+
+Ограничения:
+- MVP сериализует chat writes одного tenant; высокую пропускную способность/нагрузочную готовность не заявляем до Phase 8 load tests.
+- Manual accept/assign — явный override auto capacity. Уже открытые диалоги при offline/деактивации автоматически не передаются; менеджер использует ручную передачу. Расписание: один интервал в день, ночные смены не поддержаны.
+- Browser receipts подтверждают состояние клиента приложения, не внешнего провайдера и не внимание человека. При отказе WS остаётся HTTP recovery, полный отказ Redis может временно блокировать новые HTTP запросы; сохранённая MySQL история остаётся источником истины.
+- CRM V2/внешние каналы не подключены. BLOCKED реальная передача в CRM: нет согласованного endpoint/auth/test account. BLOCKED повторная полная сверка исходного JIVO_ANALOG_SPEC.md: вложение недоступно. Production deployment не выполнялся.
+
+Код-коммиты: `2b2bb27` backend, `2ecd21c` UI/runtime/E2E, `695e476` login quota fix + regression tests. Последний status-коммит: `git log -1 --oneline`; эта запись сохраняется после подтверждённого CI.
+Следующий конкретный шаг: Phase 7 — версионированный контракт интеграции/адаптеры и интеграционный outbox без изменения CRM и без имитации подключённого канала.

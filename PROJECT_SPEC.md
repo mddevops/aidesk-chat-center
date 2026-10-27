@@ -30,3 +30,9 @@ DONE означает код и пройденные проверки. Обяз�
 Каждый сайт имеет отдельный Widget и website Channel. Draft сохраняется независимо от published snapshot; optimistic revision обязательна при save/publish. История позволяет восстановить конфигурацию в новый черновик. Обязательные имя/телефон/согласие не отключаются редактором. Выбор отделов — allowlist своей организации, пустой список означает общую очередь. Offline — ручной режим приёма обращений с отложенным ответом; presence и расписания относятся к Phase 6.
 
 Бесплатные системные шрифты; логотип/политика — HTTPS URL без исполнения HTML/CSS. Preview не создаёт visitor session/chat/lead. SDK устанавливается одним script, launcher Shadow DOM, runtime iframe. История браузера восстанавливается bearer credential из хранилища сайта; телефон не авторизует. На Phase 5 visitor получает ответы HTTP recovery/polling; visitor Reverb отдельно проверяется в Phase 6.
+
+## Реализация Phase 6 (27.10.2026)
+
+Visitor использует private Reverb с отдельной bearer авторизацией и HTTP sequence recovery; fallback 15 с. Delivery/read — явные монотонные browser/operator ACK, без приравнивания WS publication к доставке.
+
+Автоматическое назначение на первом сообщении и повторный обход pending: round-robin/least-load, reserve, department/tenant isolation, active role, available heartbeat lease, capacity и weekly schedule. Явная manual assignment может превышать auto capacity. Ранее принятые диалоги не передаются автоматически при offline; это отдельное правило дальнейшего развития. Расписание MVP — один интервал в день без ночных смен. Manager UI `/settings/routing`; own availability — Inbox.
