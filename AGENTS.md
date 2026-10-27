@@ -48,3 +48,12 @@
 - Сетевой retry сообщения использует прежний client_message_id и payload. Не создавать новый ID автоматически после неопределённого HTTP исхода. Memory drafts не считать сохранением после reload.
 - Browser notifications только после клика; не включать PII в OS notification. Читать статус realtime только после private subscription success.
 - E2E Inbox проверяет реальный UI desktop/mobile, retry после commit/потери ответа, notes/files/quick replies, передачу, ответ назначенного оператора и закрытие/возврат. Не заменять этот gate API-only тестом.
+
+## Widgets
+
+- Настройки `/settings/messenger`, API `/api/v1/widgets`, runtime `/widget/v1/channels/{uuid}/frame`, SDK `/sdk/aidesk.js`. Только directory.manage своего tenant меняет настройки.
+- Widget draft/revision и immutable WidgetVersion разделены. Publish/save только с ожидаемой revision и row lock. Не читать draft публично; не менять снимки или обнулять счётчик версий.
+- Preview shared runtime с preview=true не должен отправлять ни session, ни identify/message/read/revoke/upload. Проверять браузерные requests, а не только текст «предпросмотр».
+- postMessage только с точным origin/source/targetOrigin; bearer не попадёт в iframe URL, публичный config, лог или cookie приложения. SDK session bootstrap остаётся запросом сайта; не разрешать app Origin для произвольного bootstrap вместо сайта.
+- Отделы доступны только из published tenant allowlist; выбранный отдел фиксируется в visitor session до первого Conversation. Не расширять fillable Conversation для обхода command policies.
+- `tests/e2e/widget.spec.ts` проверяет настоящий one-script SDK на двух внешних origin, UI builder/publish, visitor identity, Inbox reply, reload/history и изоляцию. HTTP polling в Phase 5 не считать реализованным visitor Reverb.

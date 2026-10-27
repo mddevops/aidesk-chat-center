@@ -59,3 +59,11 @@ React использует Echo после входа, дедуплицируе�
 Composer поддерживает обычный ответ, заметку, до 5 приватных файлов, управляемые tenant quick replies и Ctrl+Enter. Неотправленный текст/файлы хранятся в памяти текущего Inbox по conversation ID, без долговременной записи переписки в localStorage. При потере HTTP-ответа повторяет замороженный client_message_id/payload; серверная запись не дублируется. Перезагрузка страницы/выход не сохраняют этот memory draft. История открывается с последних 100 сообщений, старые страницы загружаются отдельно, live recovery идёт вперёд по sequence.
 
 Phase 4 не реализует round-robin/load/presence/schedules, автоматическую перепривязку при отключении сотрудника, visitor WebSocket или виджет. Эти части следуют после рабочего Widget Builder/SDK и соответствующих gates.
+
+## Widget module
+
+Widget принадлежит одному Site/Channel с tenant composite FK; Site lock сериализует идемпотентное создание. Widget.draft + revision отделены от immutable WidgetVersion.configuration; publish под row lock проверяет ожидаемую revision, записывает новый снимок и атомарно меняет published_version. Save/publish доступны directory.manage своего tenant. Публичные GET configuration/frame читают только опубликованный снимок активного website channel; никакой visitor credential/history там нет.
+
+SDK launcher использует Shadow DOM, переписка — отдельный iframe приложения. Session bootstrap выполняется fetch на origin сайта; iframe обменивается credential с parent посредством проверки event.origin и event.source. CSP frame-ancestors ограничивает embedding сайтом канала. Visitor API остаётся stateless bearer без cookies оператора. Shared React WidgetRuntime в preview не создаёт сетевых side effects; production frame использует реальные visitor endpoints. Phone не участвует в выборе сессии. Published department allowlist проверяется до создания Contact и переносится из visitor session в первый Conversation. Отдел не меняется через visitor identity повторно.
+
+На этапе Phase 5 visitor history восстанавливается последовательными HTTP страницами, polling 4 с только при открытом окне. Это не visitor WebSocket. Reverb уже доставляет минимальные private события оператору. Memory draft/retry не обещают сохранение после reload; сохранённая сервером история восстанавливается browser credential.

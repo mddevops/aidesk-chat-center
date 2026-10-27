@@ -1,4 +1,4 @@
-# Фактический статус — 26.10.2026
+# Фактический статус — 27.10.2026
 
 ## Phase 1 — Foundation: реализована и локально проверена
 
@@ -103,3 +103,33 @@ BLOCKED: исходный JIVO_ANALOG_SPEC.md по-прежнему недост
 Следующий конкретный шаг: Phase 5 — отдельная версия виджета для каждого сайта: draft/published/version history/optimistic publish, безопасный preview без session/chat/lead, iframe SDK с установкой одной строкой и реальным visitor → Inbox → visitor обменом на двух внешних сайтах. Начать с модели Widget/WidgetVersion и публичного published config; затем builder и изолированный runtime.
 
 Последние код-коммиты: Foundation `9240b71`, Access `845f5e4`, Chat domain/outbox `93f103b`, Chat API `8e7d751`, Inbox workflows `a515633`. UI Inbox и E2E `4595baf`. Последний status-коммит содержит эту запись; точный SHA: `git log -1 --oneline`.
+
+## Phase 5 — Widget Builder и устанавливаемый чат: локальные gates и CI PASS (27.10.2026)
+
+Реализовано:
+- `/settings/messenger`: отдельный Widget для каждого сайта, draft/revision, сохранение без изменения сайта, optimistic publish и immutable WidgetVersion; восстановление прежней публикации в черновик. Latest 100 versions в UI/API.
+- Tenant query scope, WidgetPolicy, composite FK site/channel/author, Site/Widget row locks, 409 при конфликте ревизий. Публичные config/frame получают только published snapshot активного канала.
+- Имя/HTTPS logo, цвет, light/dark/auto, системные font stacks, размеры/позиция/отступы/скругление/тень, анимация, avatar, greeting/start buttons, мобильный fullscreen, ручной online/offline mode, обязательные имя/телефон/consent, HTTPS privacy link и allowlist отделов.
+- Department validation до Contact, выбранный отдел VisitorSession → первый Conversation; чужой/неопубликованный выбор отклоняется. Обязательные поля и server phone normalization сохраняются.
+- Live preview shared runtime без visitor запросов/сессий/контактов/чатов; адаптивный редактор и код установки одним script.
+- `/sdk/aidesk.js`: launcher Shadow DOM, переписка iframe, CSP frame-ancestors сайта, Origin/source/targetOrigin-checked postMessage, no token in URL. Credential хранится отдельно по origin приложения/каналу в localStorage сайта; bootstrap только после клика.
+- Реальные identify/send/history/read/revoke/upload/download, stored marker, same-ID/payload retry при неопределённом HTTP исходе, восстановление после reload по credential. HTTP sequence polling каждые 4 с при открытом окне; не выдаётся за visitor Reverb.
+- APP_URL примера/CI исправлен на канонический local origin http://127.0.0.1:8000: прежний localhost вызывал origin_forbidden для POST из iframe. Без ослабления origin policy.
+
+Проверено:
+- Обе миграции на существующей локальной MySQL PASS; процессы восстановлены/пересозданы без удаления данных.
+- Strict TypeScript/Vite PASS (последняя сборка 5.05 с), node --check SDK PASS, git diff --check PASS. Новых зависимостей нет, lock files не менялись.
+- Pest feature 39 PASS, 376 assertions; infrastructure 6 PASS, 25 assertions. Новые проверки publications/drafts/conflicts, safe configuration, tenant/role/origin, no session/contact side effects, department routing и immutable snapshots. После добавления WidgetPolicy отдельные 3 Widget tests PASS (50 assertions).
+- Полный Playwright desktop/mobile 14 PASS с 2 workers (57.4 с). После усиления widget test — 2 PASS (20.0 с): реальный one-script SDK на внешних origin, builder save/publish, preview без visitor requests, обязательная identity, visitor → Inbox → visitor, PDF upload, abort HTTP после commit + retry без дубля, reload/history и изоляция двух сайтов с тем же телефоном. Проверено совпадение mobile iframe с viewport, dark mobile screenshot просмотрен.
+- Pint --test PASS (96 файлов); Composer validate --strict PASS. GitHub Actions для `6a6360b`: run 40472249201 SUCCESS — audits, build, migrations, 45 Pest и 14 Playwright. https://github.com/mddevops/aidesk-chat-center/actions/runs/40472249201
+
+Ограничения/что ещё не работает:
+- Visitor Reverb/private subscriptions/presence и автоматические round-robin/least-load/fallback/расписания — Phase 6. Сейчас сообщения посетителю приходят polling, оператору — существующий Reverb.
+- Несохранённый composer/retry payload хранится в памяти; reload может потерять неотправленный текст. Если storage сайта заблокирован, credential живёт до reload. Телефон по-прежнему не авторизует историю.
+- Закрытый оператором диалог доступен для чтения; повторное обращение после закрытия требует новой сессии либо возврата диалога оператором. Автоматическое переоткрытие не заявлено.
+- Согласие contact-v1 — техническая версия; юридический текст должен утвердить владелец организации. Антивирус, custom roles/MFA/reset/invites/global audit UI, load/restore acceptance, CRM и внешние каналы ещё впереди.
+- BLOCKED повторная полная сверка исходного JIVO_ANALOG_SPEC.md: вложение недоступно; требования не выдуманы. Production deployment не выполнялся.
+
+Последние код-коммиты: `61f1bd1` (Widget domain/publish/access/departments), `6a6360b` (builder/runtime/SDK/E2E/CI origin). Последний status-коммит: см. `git log -1 --oneline`.
+
+Следующий конкретный шаг: Phase 6 — visitor private Reverb auth с browser credential, минимальные события без PII и sequence recovery; затем атомарные routing rules round-robin/least-load/fallback с tenant/department/active/availability checks и конкурентными MySQL tests. Сохранить HTTP recovery fallback, не заменять проверенный SDK макетом.
