@@ -28,7 +28,11 @@ class SendMessage
                 throw new ChatException('identity_required', 'Перед сообщением укажите имя, телефон и согласие.', 403);
             }
             $conversation = Conversation::where('visitor_session_id', $session->id)->lockForUpdate()->first();
-            $conversation ??= Conversation::create(['channel_id' => $session->channel_id, 'visitor_session_id' => $session->id, 'contact_id' => $session->contact_id]);
+            if (! $conversation) {
+                $conversation = new Conversation(['channel_id' => $session->channel_id, 'visitor_session_id' => $session->id, 'contact_id' => $session->contact_id]);
+                $conversation->department_id = $session->department_id;
+                $conversation->save();
+            }
 
             return $this->persist($conversation, $data, 'visitor:'.$session->public_id, $session->id, null);
         }, 3);

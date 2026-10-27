@@ -12,8 +12,11 @@ use App\Http\Controllers\Controller;
 use App\Models\Attachment;
 use App\Models\Contact;
 use App\Models\Conversation;
+use App\Models\Department;
 use App\Models\Message;
 use App\Models\VisitorSession;
+use App\Models\Widget;
+use App\Models\WidgetVersion;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -44,7 +47,21 @@ class VisitorController extends Controller
         if ($phoneError) {
             $validator->after(fn ($validator) => $validator->errors()->add('phone', $phoneError));
         }
+        $validator->addRules(['department_id' => ['nullable', 'integer']]);
         $data = $validator->validate();
+        $widget = Widget::where('channel_id', $request->attributes->get('widget_channel')->id)->first();
+        if ($widget && $widget->published_version) {
+            $configuration = WidgetVersion::where('widget_id', $widget->id)->where('version', $widget->published_version)->firstOrFail()->configuration;
+            $departments = $configuration['department_ids'] ?? [];
+            if (($departments || ! empty($data['department_id'])) && ! in_array((int) ($data['department_id'] ?? 0), $departments, true)) {
+                throw ValidationException::withMessages(['department_id' => 'Выберите доступный отдел.']);
+            }
+        } elseif (! empty($data['department_id'])) {
+            throw ValidationException::withMessages(['department_id' => 'Выбор отдела недоступен.']);
+        }
+        if (! empty($data['department_id']) && ! Department::whereKey($data['department_id'])->exists()) {
+            throw ValidationException::withMessages(['department_id' => 'Отдел недоступен.']);
+        }
         $session = DB::transaction(function () use ($request, $data, $phone) {
             $session = VisitorSession::whereKey($request->attributes->get('visitor_session')->id)->lockForUpdate()->firstOrFail();
             if ($session->revoked_at || $session->expires_at->isPast()) {
@@ -52,11 +69,12 @@ class VisitorController extends Controller
             }
             if ($session->contact_id) {
                 $contact = Contact::findOrFail($session->contact_id);
-                if ($contact->name !== trim($data['name']) || $contact->phone !== $phone || $session->consent_version !== $data['consent_version']) {
+                if ($contact->name !== trim($data['name']) || $contact->phone !== $phone || $session->consent_version !== $data['consent_version'] || (int) $session->department_id !== (int) ($data['department_id'] ?? 0)) {
                     throw new ChatException('identity_locked', 'Контакт этой сессии уже указан.');
                 }
             } else {
                 $contact = Contact::create(['name' => trim($data['name']), 'phone' => $phone]);
+                $session->department_id = $data['department_id'] ?? null;
                 $session->contact_id = $contact->id;
                 $session->consent_version = $data['consent_version'];
                 $session->consented_at = now();
@@ -76,7 +94,7 @@ class VisitorController extends Controller
 
     public function current(Request $request)
     {
-        return response()->json(['data' => ChatPayload::visitorConversation($this->conversation($request))]);
+        return response()->json(['data' => ChatPayload::visitorConversation($this->conversation($request)), 'identified' => (bool) $request->attributes->get('visitor_session')->contact_id]);
     }
 
     public function messages(Request $request)

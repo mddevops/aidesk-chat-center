@@ -1,9 +1,12 @@
 <?php
 
 use App\Http\Controllers\Chat\VisitorController;
+use App\Http\Controllers\Widgets\PublicWidgetController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('widget/v1/channels/{channelPublicId}')->middleware('widget.channel')->group(function () {
+    Route::get('/configuration', [PublicWidgetController::class, 'configuration']);
+    Route::get('/frame', [PublicWidgetController::class, 'frame']);
     Route::options('/{path?}', fn () => response()->noContent())->where('path', '.*');
     Route::post('/sessions', [VisitorController::class, 'session'])->middleware('throttle:widget-sessions');
     Route::middleware('visitor.credential')->group(function () {

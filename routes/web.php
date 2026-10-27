@@ -3,6 +3,7 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Chat\InboxController;
 use App\Http\Controllers\OrganizationController;
+use App\Http\Controllers\Widgets\WidgetController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -27,3 +28,13 @@ Route::middleware(['auth', 'tenant'])->prefix('settings')->group(function () {
 });
 
 require __DIR__.'/operator.php';
+
+Route::middleware(['auth', 'tenant'])->group(function () {
+    Route::get('/settings/messenger', [WidgetController::class, 'index'])->name('settings.messenger');
+    Route::prefix('api/v1/widgets')->group(function () {
+        Route::post('/sites/{site}', [WidgetController::class, 'create']);
+        Route::get('/{widget}', [WidgetController::class, 'show']);
+        Route::put('/{widget}', [WidgetController::class, 'save']);
+        Route::post('/{widget}/publish', [WidgetController::class, 'publish']);
+    });
+});

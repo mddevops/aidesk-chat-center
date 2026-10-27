@@ -10,7 +10,7 @@ class VisitorSession extends Model
 {
     use BelongsToOrganization;
 
-    protected $fillable = ['channel_id', 'contact_id', 'token_hash', 'expires_at', 'consent_version', 'consented_at'];
+    protected $fillable = ['department_id', 'channel_id', 'contact_id', 'token_hash', 'expires_at', 'consent_version', 'consented_at'];
 
     protected $hidden = ['token_hash'];
 
