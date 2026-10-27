@@ -3,10 +3,13 @@
 namespace App\Jobs;
 
 use App\Events\ChatMessageAvailable;
+use App\Events\VisitorChatAvailable;
+use App\Models\Channel;
 use App\Models\ChatEvent;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\User;
+use App\Models\VisitorSession;
 use App\Tenancy\TenantContext;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -49,6 +52,18 @@ class PublishChatEvent implements ShouldQueue
                         'occurred_at' => $event->created_at->toISOString(),
                         'data' => $message ? ['conversation_id' => $conversation->id, 'message_id' => $message->id, 'sequence' => $message->sequence, 'sender_type' => $message->sender_type] : ['conversation_id' => $conversation->id],
                     ], $message ? 'chat.message_available.v1' : 'chat.conversation_changed.v1'));
+                }
+                // Notes never reach the visitor channel, even as an ID/sequence hint.
+                if (! $message || $message->kind === 'message') {
+                    $session = VisitorSession::whereKey($conversation->visitor_session_id)->whereNull('revoked_at')->where('expires_at', '>', now())->first();
+                    if ($session && Channel::whereKey($session->channel_id)->where('is_active', true)->exists()) {
+                        event(new VisitorChatAvailable($this->organizationId, $session->public_id, [
+                            'event_id' => $event->event_id, 'schema_version' => 1,
+                            'aggregate_id' => $conversation->public_id,
+                            'aggregate_version' => $event->aggregate_version,
+                            'data' => ['sequence' => $conversation->last_public_sequence],
+                        ]));
+                    }
                 }
                 $event->published_at = now();
                 $event->last_error_code = null;

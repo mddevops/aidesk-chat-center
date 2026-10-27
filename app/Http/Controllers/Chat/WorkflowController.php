@@ -36,7 +36,7 @@ class WorkflowController extends Controller
         Gate::authorize('view', $conversation);
         $rows = ConversationActivity::with('actor:id,name')->where('conversation_id', $conversation->id)->orderByDesc('id')->limit(20)->get();
 
-        return response()->json(['data' => $rows->map(fn ($row) => ['id' => $row->id, 'type' => $row->type, 'changes' => $row->changes, 'reason' => $row->reason, 'version' => $row->version, 'actor' => $row->actor->only('id', 'name'), 'created_at' => $row->created_at->toISOString()])]);
+        return response()->json(['data' => $rows->map(fn ($row) => ['id' => $row->id, 'type' => $row->type, 'changes' => $row->changes, 'reason' => $row->reason, 'version' => $row->version, 'actor' => $row->actor?->only('id', 'name') ?? ['id' => null, 'name' => 'Система'], 'created_at' => $row->created_at->toISOString()])]);
     }
 
     public function replies()

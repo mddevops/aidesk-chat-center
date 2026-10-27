@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Chat;
 
+use App\Chat\Actions\NotifyReceipt;
 use App\Chat\Actions\SendMessage;
 use App\Chat\Actions\StoreAttachment;
 use App\Chat\ChatPayload;
@@ -14,6 +15,9 @@ use App\Models\Channel;
 use App\Models\Conversation;
 use App\Models\ConversationRead;
 use App\Models\Message;
+use App\Models\Organization;
+use App\Models\User;
+use App\Models\VisitorSession;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -105,7 +109,9 @@ class OperatorController extends Controller
             $messages = $messages->reverse()->values();
         }
 
-        return response()->json(['data' => $messages->map(fn ($message) => ChatPayload::message($message)), 'meta' => ['last_sequence' => $conversation->last_sequence, 'next_after_sequence' => $messages->last()?->sequence ?? (int) ($data['after_sequence'] ?? 0), 'next_before_sequence' => $messages->first()?->sequence, 'has_more' => ! $older && $hasMore, 'has_older' => $older && $hasMore]]);
+        $visitor = VisitorSession::findOrFail($conversation->visitor_session_id);
+
+        return response()->json(['data' => $messages->map(fn ($message) => [...ChatPayload::message($message), 'delivery_status' => $message->sender_type === 'operator' && $message->kind === 'message' ? ($message->sequence <= $visitor->last_read_sequence ? 'read' : ($message->sequence <= $visitor->last_delivered_sequence ? 'delivered' : 'stored')) : 'stored']), 'meta' => ['visitor_last_read_sequence' => $visitor->last_read_sequence, 'visitor_last_delivered_sequence' => $visitor->last_delivered_sequence, 'last_sequence' => $conversation->last_sequence, 'next_after_sequence' => $messages->last()?->sequence ?? (int) ($data['after_sequence'] ?? 0), 'next_before_sequence' => $messages->first()?->sequence, 'has_more' => ! $older && $hasMore, 'has_older' => $older && $hasMore]]);
     }
 
     public function send(Request $request, Conversation $conversation, SendMessage $action)
@@ -121,13 +127,20 @@ class OperatorController extends Controller
         Gate::authorize('reply', $conversation);
         $data = $request->validate(['last_read_sequence' => ['required', 'integer', 'min:0']]);
         $read = DB::transaction(function () use ($request, $conversation, $data) {
+            Organization::whereKey($conversation->organization_id)->lockForUpdate()->firstOrFail();
             $conversation = Conversation::whereKey($conversation->id)->lockForUpdate()->firstOrFail();
+            $reader = User::where('organization_id', $conversation->organization_id)->findOrFail($request->user()->id);
+            Gate::forUser($reader)->authorize('reply', $conversation);
             if ($data['last_read_sequence'] > $conversation->last_sequence) {
                 throw ValidationException::withMessages(['last_read_sequence' => 'Сообщение ещё не сохранено.']);
             }
             $read = ConversationRead::firstOrNew(['conversation_id' => $conversation->id, 'user_id' => $request->user()->id]);
             $read->last_read_sequence = max($read->last_read_sequence ?? 0, $data['last_read_sequence']);
+            $changed = $read->isDirty('last_read_sequence');
             $read->save();
+            if ($changed) {
+                NotifyReceipt::record($conversation);
+            }
 
             return $read;
         }, 3);

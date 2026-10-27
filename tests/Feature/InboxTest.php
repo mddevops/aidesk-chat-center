@@ -3,6 +3,7 @@
 use App\Chat\Actions\SendMessage;
 use App\Enums\Role;
 use App\Events\ChatMessageAvailable;
+use App\Events\VisitorChatAvailable;
 use App\Jobs\PublishChatEvent;
 use App\Models\Channel;
 use App\Models\ChatEvent;
@@ -152,7 +153,7 @@ it('publishes notifications only to operators who can view the conversations dep
     User::factory()->create(['organization_id' => $org->id, 'role' => Role::Operator, 'department_id' => $service->id]);
     Conversation::withoutGlobalScopes()->whereKey($conversation->id)->update(['department_id' => $sales->id, 'assigned_user_id' => $allowed->id, 'status' => 'open']);
     $event = ChatEvent::withoutGlobalScopes()->firstOrFail();
-    Event::fake([ChatMessageAvailable::class]);
+    Event::fake([ChatMessageAvailable::class, VisitorChatAvailable::class]);
     (new PublishChatEvent($org->id, $event->id))->handle();
     Event::assertDispatched(ChatMessageAvailable::class, function ($event) use ($org, $owner, $allowed) {
         $channels = array_map(fn ($channel) => $channel->name, $event->broadcastOn());

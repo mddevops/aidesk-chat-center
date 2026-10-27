@@ -8,8 +8,10 @@ use App\Models\Attachment;
 use App\Models\ChatEvent;
 use App\Models\Conversation;
 use App\Models\Message;
+use App\Models\Organization;
 use App\Models\User;
 use App\Models\VisitorSession;
+use App\Routing\RouteConversation;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
@@ -27,11 +29,13 @@ class SendMessage
             if (! $session->contact_id) {
                 throw new ChatException('identity_required', 'Перед сообщением укажите имя, телефон и согласие.', 403);
             }
+            Organization::whereKey($session->organization_id)->lockForUpdate()->firstOrFail();
             $conversation = Conversation::where('visitor_session_id', $session->id)->lockForUpdate()->first();
             if (! $conversation) {
                 $conversation = new Conversation(['channel_id' => $session->channel_id, 'visitor_session_id' => $session->id, 'contact_id' => $session->contact_id]);
                 $conversation->department_id = $session->department_id;
                 $conversation->save();
+                $conversation = app(RouteConversation::class)->handle($conversation);
             }
 
             return $this->persist($conversation, $data, 'visitor:'.$session->public_id, $session->id, null);
@@ -41,6 +45,7 @@ class SendMessage
     public function operator(Conversation $conversation, User $user, array $data): array
     {
         return DB::transaction(function () use ($conversation, $user, $data) {
+            Organization::whereKey($conversation->organization_id)->lockForUpdate()->firstOrFail();
             $conversation = Conversation::whereKey($conversation->id)->lockForUpdate()->firstOrFail();
             $user = User::where('organization_id', $conversation->organization_id)->findOrFail($user->id);
             Gate::forUser($user)->authorize('reply', $conversation);

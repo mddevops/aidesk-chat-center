@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Chat;
 
+use App\Chat\Actions\NotifyReceipt;
 use App\Chat\Actions\SendMessage;
 use App\Chat\Actions\StoreAttachment;
 use App\Chat\ChatException;
@@ -12,8 +13,10 @@ use App\Http\Controllers\Controller;
 use App\Models\Attachment;
 use App\Models\Contact;
 use App\Models\Conversation;
+use App\Models\ConversationRead;
 use App\Models\Department;
 use App\Models\Message;
+use App\Models\Organization;
 use App\Models\VisitorSession;
 use App\Models\Widget;
 use App\Models\WidgetVersion;
@@ -25,6 +28,13 @@ use Illuminate\Validation\ValidationException;
 
 class VisitorController extends Controller
 {
+    public function realtime(Request $request)
+    {
+        $session = $request->attributes->get('visitor_session');
+
+        return response()->json(['data' => ['channel' => 'organizations.'.$session->organization_id.'.visitors.'.$session->public_id, 'expires_at' => $session->expires_at->toISOString()]]);
+    }
+
     public function session(Request $request)
     {
         $token = bin2hex(random_bytes(32));
@@ -103,10 +113,12 @@ class VisitorController extends Controller
         $conversation = $this->conversation($request);
         $messages = $conversation ? Message::with(['attachments', 'operator:id,name'])->where('conversation_id', $conversation->id)->where('kind', 'message')->where('sequence', '>', $data['after_sequence'] ?? 0)->orderBy('sequence')->limit(101)->get() : collect();
 
+        $readHead = $conversation ? (int) ConversationRead::where('conversation_id', $conversation->id)->max('last_read_sequence') : 0;
+        $readHead = $conversation ? (int) Message::where('conversation_id', $conversation->id)->where('kind', 'message')->where('sequence', '<=', $readHead)->max('sequence') : 0;
         $hasMore = $messages->count() > 100;
         $messages = $messages->take(100);
 
-        return response()->json(['data' => $messages->map(fn ($message) => ChatPayload::message($message)), 'meta' => ['last_sequence' => $conversation?->last_public_sequence ?? 0, 'next_after_sequence' => $messages->last()?->sequence ?? (int) ($data['after_sequence'] ?? 0), 'has_more' => $hasMore]]);
+        return response()->json(['data' => $messages->map(fn ($message) => [...ChatPayload::message($message), 'delivery_status' => $message->sender_type === 'visitor' && $message->sequence <= $readHead ? 'read' : 'stored']), 'meta' => ['operator_read_sequence' => $readHead, 'last_sequence' => $conversation?->last_public_sequence ?? 0, 'next_after_sequence' => $messages->last()?->sequence ?? (int) ($data['after_sequence'] ?? 0), 'has_more' => $hasMore]]);
     }
 
     public function send(Request $request, SendMessage $action)
@@ -118,20 +130,41 @@ class VisitorController extends Controller
 
     public function read(Request $request)
     {
-        $data = $request->validate(['last_read_sequence' => ['required', 'integer', 'min:0']]);
-        $session = DB::transaction(function () use ($request, $data) {
+        return $this->acknowledge($request, 'last_read_sequence');
+    }
+
+    public function delivered(Request $request)
+    {
+        return $this->acknowledge($request, 'last_delivered_sequence');
+    }
+
+    private function acknowledge(Request $request, string $key)
+    {
+        $data = $request->validate([$key => ['required', 'integer', 'min:0']]);
+        $session = DB::transaction(function () use ($request, $data, $key) {
             $session = VisitorSession::whereKey($request->attributes->get('visitor_session')->id)->lockForUpdate()->firstOrFail();
-            $conversation = Conversation::where('visitor_session_id', $session->id)->first();
-            if ($data['last_read_sequence'] > ($conversation?->last_public_sequence ?? 0)) {
-                throw ValidationException::withMessages(['last_read_sequence' => 'Нельзя прочитать ещё не сохранённое сообщение.']);
+            if ($session->revoked_at || $session->expires_at->isPast()) {
+                throw new ChatException('invalid_credential', 'Сессия посетителя недействительна.', 401);
             }
-            $session->last_read_sequence = max($session->last_read_sequence, $data['last_read_sequence']);
+            Organization::whereKey($session->organization_id)->lockForUpdate()->firstOrFail();
+            $conversation = Conversation::where('visitor_session_id', $session->id)->lockForUpdate()->first();
+            if ($data[$key] > ($conversation?->last_public_sequence ?? 0)) {
+                throw ValidationException::withMessages([$key => 'Сообщение ещё не сохранено.']);
+            }
+            $session->$key = max($session->$key, $data[$key]);
+            if ($key === 'last_read_sequence') {
+                $session->last_delivered_sequence = max($session->last_delivered_sequence, $session->last_read_sequence);
+            }
+            $changed = $session->isDirty(['last_read_sequence', 'last_delivered_sequence']);
             $session->save();
+            if ($changed && $conversation) {
+                NotifyReceipt::record($conversation);
+            }
 
             return $session;
         }, 3);
 
-        return response()->json(['data' => ['last_read_sequence' => $session->last_read_sequence]]);
+        return response()->json(['data' => [$key => $session->$key]]);
     }
 
     public function revoke(Request $request)

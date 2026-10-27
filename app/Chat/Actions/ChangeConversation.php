@@ -8,6 +8,7 @@ use App\Models\ChatEvent;
 use App\Models\Conversation;
 use App\Models\ConversationActivity;
 use App\Models\Department;
+use App\Models\Organization;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -20,6 +21,7 @@ class ChangeConversation
     public function handle(Conversation $conversation, User $actor, string $operation, array $data): Conversation
     {
         return DB::transaction(function () use ($conversation, $actor, $operation, $data) {
+            Organization::whereKey($conversation->organization_id)->lockForUpdate()->firstOrFail();
             $conversation = Conversation::whereKey($conversation->id)->lockForUpdate()->firstOrFail();
             $actor = User::where('organization_id', $conversation->organization_id)->findOrFail($actor->id);
             Gate::forUser($actor)->authorize($operation, $conversation);

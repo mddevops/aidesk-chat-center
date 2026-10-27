@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Chat\InboxController;
+use App\Http\Controllers\Chat\RoutingController;
 use App\Http\Controllers\OrganizationController;
 use App\Http\Controllers\Widgets\WidgetController;
 use Illuminate\Support\Facades\Route;
@@ -38,3 +39,5 @@ Route::middleware(['auth', 'tenant'])->group(function () {
         Route::post('/{widget}/publish', [WidgetController::class, 'publish']);
     });
 });
+
+Route::get('/settings/routing', [RoutingController::class, 'page'])->middleware(['auth', 'tenant'])->name('settings.routing');

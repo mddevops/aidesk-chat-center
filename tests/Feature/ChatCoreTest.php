@@ -3,16 +3,13 @@
 use App\Chat\PhoneNumber;
 use App\Enums\Role;
 use App\Events\ChatMessageAvailable;
+use App\Events\VisitorChatAvailable;
 use App\Jobs\PublishChatEvent;
-use App\Models\Channel;
 use App\Models\ChatEvent;
 use App\Models\Contact;
 use App\Models\Conversation;
 use App\Models\ConversationRead;
 use App\Models\Message;
-use App\Models\Organization;
-use App\Models\Showroom;
-use App\Models\Site;
 use App\Models\User;
 use App\Models\VisitorSession;
 use App\Tenancy\TenantContext;
@@ -27,42 +24,6 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 uses(RefreshDatabase::class);
-
-function chatTenant(): array
-{
-    $org = Organization::create(['name' => 'Чат '.Str::uuid()]);
-    $user = User::factory()->create(['organization_id' => $org->id, 'role' => Role::Owner]);
-    $context = app(TenantContext::class);
-    $context->set($org->id);
-    try {
-        $salon = Showroom::create(['name' => 'Автосалон']);
-        $site = Site::create(['name' => 'Сайт', 'origin' => 'https://dealer.example', 'showroom_id' => $salon->id]);
-        $channel = Channel::create(['name' => 'Чат сайта', 'site_id' => $site->id, 'kind' => 'website']);
-    } finally {
-        $context->clear();
-    }
-
-    return [$org, $user, $channel];
-}
-
-function chatBrowser($test, Channel $channel, bool $identify = true): array
-{
-    $base = '/widget/v1/channels/'.$channel->public_id;
-    $test->withHeaders(['Origin' => 'https://dealer.example', 'Accept' => 'application/json']);
-    $result = $test->postJson($base.'/sessions')->assertCreated();
-    $token = $result->json('data.credential');
-    $test->withHeader('Authorization', 'Bearer '.$token);
-    if ($identify) {
-        $test->postJson($base.'/identify', ['name' => 'Иван', 'phone' => '8 (999) 123-45-67', 'consent' => true, 'consent_version' => 'contact-v1'])->assertOk();
-    }
-
-    return [$base, $token, $result->json('data.session_id')];
-}
-
-function chatSend($test, string $base, string $body = 'Здравствуйте', ?string $key = null)
-{
-    return $test->postJson($base.'/messages', ['body' => $body, 'client_message_id' => $key ?? (string) Str::uuid()]);
-}
 
 it('requires name phone and consent on the server before accepting a message', function () {
     Queue::fake();
@@ -179,7 +140,7 @@ it('keeps the outbox pending on publish failure and safely retries with minimal 
     expect($event->fresh()->published_at)->toBeNull();
     expect($event->fresh()->attempts)->toBe(1);
     $this->travel(6)->seconds();
-    Event::fake([ChatMessageAvailable::class]);
+    Event::fake([ChatMessageAvailable::class, VisitorChatAvailable::class]);
     (new PublishChatEvent($org->id, $event->id))->handle();
     expect($event->fresh()->published_at)->not->toBeNull();
     (new PublishChatEvent($org->id, $event->id))->handle();

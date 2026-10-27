@@ -5,6 +5,7 @@ use App\Chat\Actions\SendMessage;
 use App\Chat\ChatException;
 use App\Enums\Role;
 use App\Events\ChatMessageAvailable;
+use App\Events\VisitorChatAvailable;
 use App\Jobs\PublishChatEvent;
 use App\Models\Channel;
 use App\Models\ChatEvent;
@@ -12,7 +13,9 @@ use App\Models\Contact;
 use App\Models\Conversation;
 use App\Models\ConversationActivity;
 use App\Models\Message;
+use App\Models\OperatorState;
 use App\Models\Organization;
+use App\Models\RoutingRule;
 use App\Models\Showroom;
 use App\Models\Site;
 use App\Models\User;
@@ -58,7 +61,7 @@ it('commits MySQL messages and outbox rows when the queue cannot accept a job', 
         expect(Message::findOrFail($message->id)->body)->toBe('Durable test');
         $event = ChatEvent::firstOrFail();
         expect($event->published_at)->toBeNull();
-        Event::fake([ChatMessageAvailable::class]);
+        Event::fake([ChatMessageAvailable::class, VisitorChatAvailable::class]);
         (new PublishChatEvent($tenant, $event->id))->handle();
         expect($event->fresh()->published_at)->not->toBeNull();
     } finally {
@@ -144,6 +147,50 @@ it('allows exactly one operator to accept concurrently on MySQL', function () {
     } finally {
         // Activity and conversation references must be removed before synthetic users.
         foreach (['chat_events', 'conversation_activities', 'conversation_reads', 'attachments', 'messages', 'conversations', 'visitor_sessions', 'contacts', 'channels', 'sites', 'showrooms', 'users'] as $table) {
+            DB::table($table)->where('organization_id', $tenant)->delete();
+        }
+        DB::table('organizations')->where('id', $tenant)->delete();
+        app(TenantContext::class)->clear();
+    }
+})->group('infrastructure');
+
+it('does not exceed routing capacity when four visitors arrive concurrently on MySQL', function () {
+    [$tenant, $sessionId] = chatInfrastructureFixture();
+    try {
+        Queue::fake();
+        $first = VisitorSession::findOrFail($sessionId);
+        $operators = User::factory()->count(2)->create(['organization_id' => $tenant, 'role' => Role::Operator]);
+        foreach ($operators as $operator) {
+            OperatorState::create(['user_id' => $operator->id, 'status' => 'available', 'heartbeat_at' => now(), 'capacity' => 1]);
+        }
+        RoutingRule::create(['channel_id' => $first->channel_id, 'scope_key' => 'global', 'strategy' => 'least_load', 'operator_ids' => $operators->pluck('id')->all()]);
+        $sessions = [$first];
+        for ($i = 0; $i < 3; $i++) {
+            $sessions[] = VisitorSession::create(['channel_id' => $first->channel_id, 'contact_id' => $first->contact_id, 'token_hash' => hash('sha256', random_bytes(32)), 'expires_at' => now()->addHour()]);
+        }
+        $tasks = [];
+        foreach ($sessions as $session) {
+            $id = $session->id;
+            $task = function () use ($tenant, $id) {
+                app(TenantContext::class)->set($tenant);
+                Queue::fake();
+                try {
+                    [$message] = app(SendMessage::class)->visitor(VisitorSession::findOrFail($id), ['kind' => 'message', 'body' => 'Routing race', 'attachment_ids' => [], 'client_message_id' => (string) Str::uuid()]);
+
+                    return Conversation::findOrFail($message->conversation_id)->assigned_user_id;
+                } finally {
+                    app(TenantContext::class)->clear();
+                }
+            };
+            $tasks[] = $task->bindTo(null, null);
+        }
+        $result = Concurrency::driver('process')->run($tasks);
+        expect(count(array_filter($result)))->toBe(2);
+        expect(count(array_unique(array_filter($result))))->toBe(2);
+        expect(Conversation::where('status', 'pending')->count())->toBe(2);
+        expect(ConversationActivity::where('type', 'route')->count())->toBe(2);
+    } finally {
+        foreach (['routing_rules', 'operator_states', 'chat_events', 'conversation_activities', 'conversation_reads', 'attachments', 'messages', 'conversations', 'visitor_sessions', 'contacts', 'channels', 'sites', 'showrooms', 'users'] as $table) {
             DB::table($table)->where('organization_id', $tenant)->delete();
         }
         DB::table('organizations')->where('id', $tenant)->delete();

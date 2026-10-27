@@ -16,7 +16,7 @@ class VisitorSession extends Model
 
     protected function casts(): array
     {
-        return ['expires_at' => 'datetime', 'revoked_at' => 'datetime', 'consented_at' => 'datetime', 'last_read_sequence' => 'integer'];
+        return ['expires_at' => 'datetime', 'revoked_at' => 'datetime', 'consented_at' => 'datetime', 'last_read_sequence' => 'integer', 'last_delivered_sequence' => 'integer'];
     }
 
     protected static function booted(): void

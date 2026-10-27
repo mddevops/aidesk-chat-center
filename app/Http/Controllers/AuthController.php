@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -36,6 +37,7 @@ class AuthController extends Controller
 
     public function destroy(Request $request)
     {
+        DB::table('operator_states')->where('organization_id', $request->user()->organization_id)->where('user_id', $request->user()->id)->update(['status' => 'offline', 'heartbeat_at' => now(), 'revision' => DB::raw('revision + 1')]);
         Inertia::clearHistory();
         Auth::logout();
         $request->session()->invalidate();
